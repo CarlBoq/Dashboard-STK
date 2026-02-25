@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(() => ({
-  base: '/',
+  base: '/Dashboard-STK/',
   esbuild: {
     jsxInject: `import React from "react"`,
   },
