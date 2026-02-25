@@ -11,6 +11,7 @@ import {
 } from './ui/table';
 import { TablePaginationControls } from './TablePaginationControls';
 import { useTablePagination } from './hooks/useTablePagination';
+import { timekeepingRecords } from '../data/timekeepingData';
 
 interface TimeRecord {
   id: string;
@@ -26,110 +27,23 @@ interface TimeRecord {
   distance?: number;
 }
 
-const mockData: TimeRecord[] = [
-  {
-    id: '1',
-    employeeName: 'Sarah Johnson',
-    scheduledStart: '09:00 AM',
-    scheduledEnd: '05:00 PM',
-    breakDuration: '1h 00m',
-    actualTimeIn: '08:55 AM',
-    actualTimeOut: '05:03 PM',
-    lateMinutes: 0,
-    totalHours: '7h 08m',
-    locationStatus: 'compliant',
-    distance: 45,
-  },
-  {
-    id: '2',
-    employeeName: 'Michael Chen',
-    scheduledStart: '08:00 AM',
-    scheduledEnd: '04:00 PM',
-    breakDuration: '30m',
-    actualTimeIn: '08:15 AM',
-    actualTimeOut: '04:10 PM',
-    lateMinutes: 15,
-    totalHours: '7h 25m',
-    locationStatus: 'compliant',
-    distance: 120,
-  },
-  {
-    id: '3',
-    employeeName: 'Emily Rodriguez',
-    scheduledStart: '10:00 AM',
-    scheduledEnd: '06:00 PM',
-    breakDuration: '1h 00m',
-    actualTimeIn: '10:35 AM',
-    actualTimeOut: '06:15 PM',
-    lateMinutes: 35,
-    totalHours: '6h 40m',
-    locationStatus: 'outside',
-    distance: 580,
-  },
-  {
-    id: '4',
-    employeeName: 'David Park',
-    scheduledStart: '07:00 AM',
-    scheduledEnd: '03:00 PM',
-    breakDuration: '30m',
-    actualTimeIn: '06:58 AM',
-    actualTimeOut: '-',
-    lateMinutes: 0,
-    totalHours: '-',
-    locationStatus: 'compliant',
-    distance: 85,
-  },
-  {
-    id: '5',
-    employeeName: 'Jessica Williams',
-    scheduledStart: '09:00 AM',
-    scheduledEnd: '05:00 PM',
-    breakDuration: '1h 00m',
-    actualTimeIn: '09:00 AM',
-    actualTimeOut: '05:00 PM',
-    lateMinutes: 0,
-    totalHours: '7h 00m',
-    locationStatus: 'no-data',
-  },
-  {
-    id: '6',
-    employeeName: 'Robert Martinez',
-    scheduledStart: '08:30 AM',
-    scheduledEnd: '04:30 PM',
-    breakDuration: '30m',
-    actualTimeIn: '-',
-    actualTimeOut: '-',
-    lateMinutes: 0,
-    totalHours: '-',
-    locationStatus: 'no-data',
-  },
-  {
-    id: '7',
-    employeeName: 'Amanda Thompson',
-    scheduledStart: '09:00 AM',
-    scheduledEnd: '05:00 PM',
-    breakDuration: '1h 00m',
-    actualTimeIn: '09:08 AM',
-    actualTimeOut: '05:12 PM',
-    lateMinutes: 8,
-    totalHours: '7h 04m',
-    locationStatus: 'compliant',
-    distance: 95,
-  },
-  {
-    id: '8',
-    employeeName: 'Christopher Lee',
-    scheduledStart: '10:00 AM',
-    scheduledEnd: '06:00 PM',
-    breakDuration: '1h 00m',
-    actualTimeIn: '10:00 AM',
-    actualTimeOut: '06:05 PM',
-    lateMinutes: 0,
-    totalHours: '7h 05m',
-    locationStatus: 'compliant',
-    distance: 65,
-  },
-];
+const mockData: TimeRecord[] = timekeepingRecords
+  .slice()
+  .sort((a, b) => (a.date < b.date ? 1 : -1))
+  .slice(0, 120)
+  .map((record) => ({
+    id: record.id,
+    employeeName: record.employeeName,
+    scheduledStart: record.scheduledStart,
+    scheduledEnd: record.scheduledEnd,
+    breakDuration: `${Math.floor(record.breakMinutes / 60)}h ${(record.breakMinutes % 60).toString().padStart(2, '0')}m`,
+    actualTimeIn: record.actualTimeIn,
+    actualTimeOut: record.actualTimeOut,
+    lateMinutes: record.lateMinutes,
+    totalHours: record.workedDuration,
+    locationStatus: record.timeOutLocation,
+    distance: record.timeOutDistance,
+  }));
 
 export function TimeRecordsTable() {
   const getLocationBadge = (status: string, distance?: number) => {

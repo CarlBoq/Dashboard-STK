@@ -29,80 +29,57 @@ interface GeneratedBreaklist {
   notificationRecipient: string;
 }
 
-const mockGeneratedBreklists: GeneratedBreaklist[] = [
-  {
-    id: '1',
-    generatedBy: 'Admin User',
-    store: 'Store 1 - Downtown',
-    dateRange: 'Feb 1-15, 2026',
-    employeeCount: 45,
-    createdAt: '2026-02-11 04:30 PM',
-    status: 'approved',
-    approvedAt: '2026-02-11 05:15 PM',
-    approvedBy: 'Manager Thompson',
-    notificationRecipient: 'store1-team@company.com',
-  },
-  {
-    id: '2',
-    generatedBy: 'Manager Thompson',
-    store: 'Store 2 - Uptown',
-    dateRange: 'Feb 1-15, 2026',
-    employeeCount: 32,
-    createdAt: '2026-02-11 03:45 PM',
-    status: 'approved',
-    approvedAt: '2026-02-11 04:20 PM',
-    approvedBy: 'Admin User',
-    notificationRecipient: 'store2-team@company.com',
-  },
-  {
-    id: '3',
-    generatedBy: 'Admin User',
-    store: 'Headquarters',
-    dateRange: 'Feb 1-15, 2026',
-    employeeCount: 28,
-    createdAt: '2026-02-12 09:00 AM',
-    status: 'pending',
-    approvedAt: '-',
-    approvedBy: '-',
-    notificationRecipient: 'hq-team@company.com',
-  },
-  {
-    id: '4',
-    generatedBy: 'Admin User',
-    store: 'Store 3 - Westside',
-    dateRange: 'Feb 1-15, 2026',
-    employeeCount: 18,
-    createdAt: '2026-02-12 09:15 AM',
-    status: 'pending',
-    approvedAt: '-',
-    approvedBy: '-',
-    notificationRecipient: 'store3-team@company.com',
-  },
-  {
-    id: '5',
-    generatedBy: 'Manager Thompson',
-    store: 'Store 1 - Downtown',
-    dateRange: 'Jan 16-31, 2026',
-    employeeCount: 45,
-    createdAt: '2026-01-31 05:00 PM',
-    status: 'approved',
-    approvedAt: '2026-01-31 05:45 PM',
-    approvedBy: 'Admin User',
-    notificationRecipient: 'store1-team@company.com',
-  },
-  {
-    id: '6',
-    generatedBy: 'Admin User',
-    store: 'Store 2 - Uptown',
-    dateRange: 'Jan 16-31, 2026',
-    employeeCount: 32,
-    createdAt: '2026-01-31 04:30 PM',
-    status: 'approved',
-    approvedAt: '2026-01-31 05:10 PM',
-    approvedBy: 'Manager Thompson',
-    notificationRecipient: 'store2-team@company.com',
-  },
-];
+const stores = ['Headquarters', 'Store 1 - Downtown', 'Store 2 - Uptown', 'Store 3 - Westside'] as const;
+const generators = ['Admin User', 'Manager Thompson', 'Operations Lead'] as const;
+const recipients: Record<(typeof stores)[number], string> = {
+  Headquarters: 'hq-team@company.com',
+  'Store 1 - Downtown': 'store1-team@company.com',
+  'Store 2 - Uptown': 'store2-team@company.com',
+  'Store 3 - Westside': 'store3-team@company.com',
+};
+
+const formatDateTime = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  const hours24 = date.getHours();
+  const minutes = `${date.getMinutes()}`.padStart(2, '0');
+  const meridiem = hours24 >= 12 ? 'PM' : 'AM';
+  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
+  return `${year}-${month}-${day} ${hours12.toString().padStart(2, '0')}:${minutes} ${meridiem}`;
+};
+
+const formatRangeLabel = (start: Date, end: Date) => {
+  const monthShort = start.toLocaleString('en-US', { month: 'short' });
+  return `${monthShort} ${start.getDate()}-${end.getDate()}, ${end.getFullYear()}`;
+};
+
+const mockGeneratedBreklists: GeneratedBreaklist[] = Array.from({ length: 40 }, (_, index) => {
+  const store = stores[index % stores.length];
+  const generatedBy = generators[index % generators.length];
+  const status: GeneratedBreaklist['status'] =
+    index % 7 === 0 ? 'rejected' : index % 4 === 0 ? 'pending' : 'approved';
+  const periodStart = new Date(2025, 10 + (index % 4), 1 + ((index % 2) * 15));
+  const periodEnd = new Date(periodStart);
+  periodEnd.setDate(periodStart.getDate() + 13);
+  const createdAtObj = new Date(periodEnd);
+  createdAtObj.setHours(14 + (index % 5), (index * 9) % 60, 0, 0);
+  const approvedAtObj = new Date(createdAtObj);
+  approvedAtObj.setMinutes(createdAtObj.getMinutes() + 30 + (index % 20));
+
+  return {
+    id: `gen-${index + 1}`,
+    generatedBy,
+    store,
+    dateRange: formatRangeLabel(periodStart, periodEnd),
+    employeeCount: 18 + ((index * 3) % 42),
+    createdAt: formatDateTime(createdAtObj),
+    status,
+    approvedAt: status === 'pending' ? '-' : formatDateTime(approvedAtObj),
+    approvedBy: status === 'pending' ? '-' : (index % 2 === 0 ? 'Admin User' : 'Manager Thompson'),
+    notificationRecipient: recipients[store],
+  };
+});
 
 export function GeneratedBreaklistPage() {
   const [generatedBreaklists, setGeneratedBreaklists] = useState(mockGeneratedBreklists);

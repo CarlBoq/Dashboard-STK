@@ -28,74 +28,66 @@ interface ArchivedUser {
   archiveReason: string;
 }
 
-const mockArchivedUsers: ArchivedUser[] = [
-  {
-    id: '1',
-    name: 'John Smith',
-    email: 'john.smith@company.com',
-    company: 'TechCorp',
-    role: 'Employee',
-    archiveDate: '2026-01-15',
-    lastTimeInRecorded: '2026-01-14 08:45 AM',
-    lastWorkingDay: '2026-01-14',
-    archiveReason: 'Resignation',
-  },
-  {
-    id: '2',
-    name: 'Maria Garcia',
-    email: 'maria.garcia@company.com',
-    company: 'RetailCo',
-    role: 'Team Leader',
-    archiveDate: '2026-01-20',
-    lastTimeInRecorded: '2026-01-19 09:15 AM',
-    lastWorkingDay: '2026-01-19',
-    archiveReason: 'Contract Ended',
-  },
-  {
-    id: '3',
-    name: 'James Wilson',
-    email: 'james.wilson@company.com',
-    company: 'TechCorp',
-    role: 'Employee',
-    archiveDate: '2025-12-31',
-    lastTimeInRecorded: '2025-12-30 08:30 AM',
-    lastWorkingDay: '2025-12-30',
-    archiveReason: 'Termination',
-  },
-  {
-    id: '4',
-    name: 'Lisa Anderson',
-    email: 'lisa.anderson@company.com',
-    company: 'RetailCo',
-    role: 'Manager',
-    archiveDate: '2026-02-01',
-    lastTimeInRecorded: '2026-01-31 09:00 AM',
-    lastWorkingDay: '2026-01-31',
-    archiveReason: 'Transferred to Another Branch',
-  },
-  {
-    id: '5',
-    name: 'Thomas Brown',
-    email: 'thomas.brown@company.com',
-    company: 'TechCorp',
-    role: 'Employee',
-    archiveDate: '2025-11-15',
-    lastTimeInRecorded: '2025-11-14 08:00 AM',
-    lastWorkingDay: '2025-11-14',
-    archiveReason: 'Retirement',
-  },
-  {
-    id: '6',
-    name: 'Patricia Davis',
-    email: 'patricia.davis@company.com',
-    company: 'RetailCo',
-    role: 'Employee',
-    archiveDate: '2026-01-10',
-    lastTimeInRecorded: '2026-01-09 10:00 AM',
-    lastWorkingDay: '2026-01-09',
-    archiveReason: 'Personal Reasons',
-  },
+const archivedUserSeed = [
+  'John Smith',
+  'Maria Garcia',
+  'James Wilson',
+  'Lisa Anderson',
+  'Thomas Brown',
+  'Patricia Davis',
+  'Anthony Rivera',
+  'Grace Villanueva',
+  'Brian Scott',
+  'Naomi Lopez',
+  'Paul Reyes',
+  'Erica Santos',
+  'Kenneth Lim',
+  'Faith Molina',
+  'Jordan Lee',
+  'Trisha Bautista',
+  'Carl Navarro',
+  'Aira Cruz',
+  'Noah Gonzales',
+  'Megan Yap',
 ];
+
+const archiveReasons = [
+  'Resignation',
+  'Contract Ended',
+  'Termination',
+  'Transferred to Another Branch',
+  'Retirement',
+  'Personal Reasons',
+] as const;
+
+const roles = ['Employee', 'Employee', 'Team Leader', 'Manager'] as const;
+
+const mockArchivedUsers: ArchivedUser[] = Array.from({ length: 48 }, (_, index) => {
+  const baseName = archivedUserSeed[index % archivedUserSeed.length];
+  const company = index % 2 === 0 ? 'TechCorp' : 'RetailCo';
+  const role = roles[index % roles.length];
+  const archiveDateObj = new Date(2025, 10 + (index % 4), 1 + ((index * 3) % 27));
+  const lastWorkingDayObj = new Date(archiveDateObj);
+  lastWorkingDayObj.setDate(archiveDateObj.getDate() - 1);
+  const formattedArchiveDate = archiveDateObj.toISOString().slice(0, 10);
+  const formattedLastDay = lastWorkingDayObj.toISOString().slice(0, 10);
+  const clockInHour = 7 + (index % 4);
+  const clockInMinute = (index * 7) % 60;
+  const ampm = clockInHour >= 12 ? 'PM' : 'AM';
+  const hour12 = clockInHour % 12 === 0 ? 12 : clockInHour % 12;
+
+  return {
+    id: `arch-${index + 1}`,
+    name: `${baseName} ${index >= archivedUserSeed.length ? `#${Math.floor(index / archivedUserSeed.length) + 1}` : ''}`.trim(),
+    email: `${baseName.toLowerCase().replace(/\s+/g, '.')}+${index + 1}@${company.toLowerCase()}.com`,
+    company,
+    role,
+    archiveDate: formattedArchiveDate,
+    lastTimeInRecorded: `${formattedLastDay} ${hour12.toString().padStart(2, '0')}:${clockInMinute.toString().padStart(2, '0')} ${ampm}`,
+    lastWorkingDay: formattedLastDay,
+    archiveReason: archiveReasons[index % archiveReasons.length],
+  };
+});
 
 export function ArchivedUsersPage() {
   const [archivedUsers, setArchivedUsers] = useState(mockArchivedUsers);

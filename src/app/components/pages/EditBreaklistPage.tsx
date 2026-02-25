@@ -27,48 +27,50 @@ interface EditableBreaklist {
   lastActionTaken: string;
 }
 
-const mockEditableBreklists: EditableBreaklist[] = [
-  {
-    id: '1',
-    generatedBy: 'Admin User',
-    store: 'Store 1 - Downtown',
-    dateRange: 'Feb 16-28, 2026',
-    employeeCount: 45,
-    createdAt: '2026-02-12 10:30 AM',
-    status: 'draft',
-    lastActionTaken: 'Created draft',
-  },
-  {
-    id: '2',
-    generatedBy: 'Manager Thompson',
-    store: 'Store 2 - Uptown',
-    dateRange: 'Feb 16-28, 2026',
-    employeeCount: 32,
-    createdAt: '2026-02-12 11:00 AM',
-    status: 'draft',
-    lastActionTaken: 'Created draft',
-  },
-  {
-    id: '3',
-    generatedBy: 'Admin User',
-    store: 'Headquarters',
-    dateRange: 'Feb 16-28, 2026',
-    employeeCount: 28,
-    createdAt: '2026-02-11 02:15 PM',
-    status: 'pending-review',
-    lastActionTaken: 'Submitted for review',
-  },
-  {
-    id: '4',
-    generatedBy: 'Admin User',
-    store: 'Store 3 - Westside',
-    dateRange: 'Feb 1-15, 2026',
-    employeeCount: 18,
-    createdAt: '2026-02-10 04:00 PM',
-    status: 'finalized',
-    lastActionTaken: 'Finalized and locked',
-  },
-];
+const stores = ['Headquarters', 'Store 1 - Downtown', 'Store 2 - Uptown', 'Store 3 - Westside'] as const;
+const generators = ['Admin User', 'Manager Thompson', 'Operations Lead'] as const;
+const actionsByStatus: Record<EditableBreaklist['status'], string> = {
+  draft: 'Created draft',
+  'pending-review': 'Submitted for review',
+  finalized: 'Finalized and locked',
+};
+
+const formatDateTime = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  const hours24 = date.getHours();
+  const minutes = `${date.getMinutes()}`.padStart(2, '0');
+  const meridiem = hours24 >= 12 ? 'PM' : 'AM';
+  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
+  return `${year}-${month}-${day} ${hours12.toString().padStart(2, '0')}:${minutes} ${meridiem}`;
+};
+
+const formatRangeLabel = (start: Date, end: Date) => {
+  const monthShort = start.toLocaleString('en-US', { month: 'short' });
+  return `${monthShort} ${start.getDate()}-${end.getDate()}, ${end.getFullYear()}`;
+};
+
+const mockEditableBreklists: EditableBreaklist[] = Array.from({ length: 32 }, (_, index) => {
+  const status: EditableBreaklist['status'] =
+    index % 5 === 0 ? 'finalized' : index % 3 === 0 ? 'pending-review' : 'draft';
+  const rangeStart = new Date(2025, 10 + (index % 4), 1 + ((index % 2) * 15));
+  const rangeEnd = new Date(rangeStart);
+  rangeEnd.setDate(rangeStart.getDate() + 13);
+  const createdAtObj = new Date(rangeStart);
+  createdAtObj.setHours(9 + (index % 8), (index * 11) % 60, 0, 0);
+
+  return {
+    id: `edit-${index + 1}`,
+    generatedBy: generators[index % generators.length],
+    store: stores[index % stores.length],
+    dateRange: formatRangeLabel(rangeStart, rangeEnd),
+    employeeCount: 16 + ((index * 4) % 40),
+    createdAt: formatDateTime(createdAtObj),
+    status,
+    lastActionTaken: actionsByStatus[status],
+  };
+});
 
 export function EditBreaklistPage() {
   const [editableBreaklists, setEditableBreaklists] = useState(mockEditableBreklists);
