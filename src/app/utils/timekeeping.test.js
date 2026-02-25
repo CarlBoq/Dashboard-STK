@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {
   buildGoogleMapsUrl,
   getLatestTimeOutEntry,
+  getPresetRange,
+  isDateInRange,
+  normalizeRange,
   sortBreakdownRows,
   sumBreakdownValues,
 } from './timekeeping.js';
@@ -65,4 +68,24 @@ test('sumBreakdownValues returns the aggregated KPI total', () => {
   ]);
 
   assert.equal(total, 3);
+});
+
+test('getPresetRange returns a 7-day inclusive range for this-week', () => {
+  const range = getPresetRange('this-week', '2026-02-12');
+  assert.deepEqual(range, { start: '2026-02-06', end: '2026-02-12' });
+});
+
+test('getPresetRange returns a 14-day inclusive range for this-2-weeks', () => {
+  const range = getPresetRange('this-2-weeks', '2026-02-12');
+  assert.deepEqual(range, { start: '2026-01-30', end: '2026-02-12' });
+});
+
+test('normalizeRange swaps custom range dates when start is after end', () => {
+  const normalized = normalizeRange('2026-02-12', '2026-02-01');
+  assert.deepEqual(normalized, { start: '2026-02-01', end: '2026-02-12' });
+});
+
+test('isDateInRange checks if a date is inside the normalized range', () => {
+  assert.equal(isDateInRange('2026-02-10', '2026-02-01', '2026-02-12'), true);
+  assert.equal(isDateInRange('2026-02-13', '2026-02-01', '2026-02-12'), false);
 });

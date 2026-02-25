@@ -5,6 +5,8 @@ import { AttendanceChart } from '../AttendanceChart';
 import { LateEmployeesTrendChart } from '../LateEmployeesTrendChart';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Badge } from '../ui/badge';
+import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import {
   Table,
   TableBody,
@@ -13,15 +15,36 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table';
-import { sortBreakdownRows, sumBreakdownValues } from '../../utils/timekeeping';
+import {
+  getPresetRange,
+  isDateInRange,
+  normalizeRange,
+  sortBreakdownRows,
+  sumBreakdownValues,
+} from '../../utils/timekeeping';
 
-interface UserAttendanceSummary {
-  id: string;
-  name: string;
+type TimeFilterOption = 'today' | 'this-week' | 'this-2-weeks' | 'this-month' | 'custom';
+
+interface AttendanceRecord {
+  userId: string;
+  userName: string;
+  date: string;
   timedIn: boolean;
-  lateMinutes: number;
   totalHours: number;
+  lateMinutes: number;
   locationViolation: boolean;
+}
+
+interface UserSummary {
+  userId: string;
+  userName: string;
+  totalHours: number;
+  timedInCount: number;
+  notTimedInCount: number;
+  lateMinutes: number;
+  onTimeCount: number;
+  locationViolationCount: number;
+  lastActivityDate: string | null;
 }
 
 interface KpiBreakdownRow {
@@ -43,135 +66,260 @@ interface KpiCardConfig {
   breakdownRows: KpiBreakdownRow[];
 }
 
-const attendanceSnapshot: UserAttendanceSummary[] = [
-  { id: 'u1', name: 'Sarah Johnson', timedIn: true, lateMinutes: 0, totalHours: 8.1, locationViolation: false },
-  { id: 'u2', name: 'Michael Chen', timedIn: true, lateMinutes: 15, totalHours: 7.4, locationViolation: false },
-  { id: 'u3', name: 'Emily Rodriguez', timedIn: true, lateMinutes: 35, totalHours: 6.7, locationViolation: true },
-  { id: 'u4', name: 'David Park', timedIn: true, lateMinutes: 0, totalHours: 7.2, locationViolation: false },
-  { id: 'u5', name: 'Jessica Williams', timedIn: true, lateMinutes: 0, totalHours: 7.0, locationViolation: false },
-  { id: 'u6', name: 'Robert Martinez', timedIn: false, lateMinutes: 0, totalHours: 0, locationViolation: false },
-  { id: 'u7', name: 'Amanda Thompson', timedIn: true, lateMinutes: 8, totalHours: 7.8, locationViolation: false },
-  { id: 'u8', name: 'Kevin Ramos', timedIn: true, lateMinutes: 0, totalHours: 8.0, locationViolation: true },
+const users = [
+  { id: 'u1', name: 'Sarah Johnson' },
+  { id: 'u2', name: 'Michael Chen' },
+  { id: 'u3', name: 'Emily Rodriguez' },
+  { id: 'u4', name: 'David Park' },
+  { id: 'u5', name: 'Jessica Williams' },
+  { id: 'u6', name: 'Robert Martinez' },
+  { id: 'u7', name: 'Amanda Thompson' },
+  { id: 'u8', name: 'Kevin Ramos' },
 ];
 
+const activityDates = [
+  '2026-01-30',
+  '2026-01-31',
+  '2026-02-01',
+  '2026-02-02',
+  '2026-02-03',
+  '2026-02-04',
+  '2026-02-05',
+  '2026-02-06',
+  '2026-02-07',
+  '2026-02-08',
+  '2026-02-09',
+  '2026-02-10',
+  '2026-02-11',
+  '2026-02-12',
+];
+
+const attendanceRecords: AttendanceRecord[] = activityDates.flatMap((date, dateIndex) =>
+  users.map((user, userIndex) => {
+    const userAbsentPattern = (userIndex === 5 && dateIndex % 4 === 0) || (userIndex === 2 && dateIndex % 7 === 0);
+    const timedIn = !userAbsentPattern;
+    const lateSeed = ((dateIndex + 2) * (userIndex + 3)) % 31;
+    const lateMinutes = timedIn && lateSeed >= 16 ? lateSeed - 9 : 0;
+    const totalHours = timedIn ? Number((6.8 + ((dateIndex + userIndex) % 4) * 0.5).toFixed(1)) : 0;
+    const locationViolation = timedIn && (dateIndex + userIndex) % 10 === 0;
+
+    return {
+      userId: user.id,
+      userName: user.name,
+      date,
+      timedIn,
+      totalHours,
+      lateMinutes,
+      locationViolation,
+    };
+  })
+);
+
 const toHoursLabel = (hours: number) => `${hours.toFixed(1)}h`;
+
+const filterLabels: Record<TimeFilterOption, string> = {
+  today: 'Today',
+  'this-week': 'This Week',
+  'this-2-weeks': 'This 2 Weeks',
+  'this-month': 'This Month',
+  custom: 'Custom',
+};
 
 export function OverviewPage() {
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null);
   const [isBreakdownLoading, setIsBreakdownLoading] = useState(false);
+  const [timeFilter, setTimeFilter] = useState<TimeFilterOption>('today');
+
+  const latestRecordDate = useMemo(
+    () => attendanceRecords.reduce((latest, current) => (current.date > latest ? current.date : latest), attendanceRecords[0]?.date ?? ''),
+    []
+  );
+
+  const defaultCustomRange = useMemo(() => getPresetRange('this-week', latestRecordDate), [latestRecordDate]);
+  const [customStartDate, setCustomStartDate] = useState(defaultCustomRange.start);
+  const [customEndDate, setCustomEndDate] = useState(defaultCustomRange.end);
+
+  const activeRange = useMemo(() => {
+    if (timeFilter === 'custom') {
+      return normalizeRange(customStartDate, customEndDate);
+    }
+    return getPresetRange(timeFilter, latestRecordDate);
+  }, [timeFilter, customStartDate, customEndDate, latestRecordDate]);
+
+  const rangeLabel = useMemo(() => {
+    if (!activeRange.start || !activeRange.end) {
+      return 'Select a valid date range';
+    }
+    return `${activeRange.start} to ${activeRange.end}`;
+  }, [activeRange]);
+
+  const filteredRecords = useMemo(() => {
+    if (!activeRange.start || !activeRange.end) {
+      return [];
+    }
+    return attendanceRecords.filter((record) => isDateInRange(record.date, activeRange.start, activeRange.end));
+  }, [activeRange]);
+
+  const userSummaries = useMemo<UserSummary[]>(() => {
+    const initialMap = new Map<string, UserSummary>();
+    users.forEach((user) => {
+      initialMap.set(user.id, {
+        userId: user.id,
+        userName: user.name,
+        totalHours: 0,
+        timedInCount: 0,
+        notTimedInCount: 0,
+        lateMinutes: 0,
+        onTimeCount: 0,
+        locationViolationCount: 0,
+        lastActivityDate: null,
+      });
+    });
+
+    filteredRecords.forEach((record) => {
+      const summary = initialMap.get(record.userId);
+      if (!summary) return;
+
+      summary.totalHours += record.totalHours;
+      if (record.timedIn) {
+        summary.timedInCount += 1;
+        if (summary.lastActivityDate === null || record.date > summary.lastActivityDate) {
+          summary.lastActivityDate = record.date;
+        }
+      } else {
+        summary.notTimedInCount += 1;
+      }
+      if (record.lateMinutes > 0) {
+        summary.lateMinutes += record.lateMinutes;
+      } else if (record.timedIn) {
+        summary.onTimeCount += 1;
+      }
+      if (record.locationViolation) {
+        summary.locationViolationCount += 1;
+      }
+    });
+
+    return [...initialMap.values()];
+  }, [filteredRecords]);
 
   const kpiCards = useMemo<KpiCardConfig[]>(() => {
-    const totalWorkedHours = attendanceSnapshot.reduce((sum, user) => sum + user.totalHours, 0);
-    const activeUsersRows = attendanceSnapshot.map((user) => ({
-      userName: user.name,
-      value: Number(user.totalHours.toFixed(1)),
-      secondaryInfo: `Worked ${toHoursLabel(user.totalHours)} today`,
-    }));
-    const timedInRows = attendanceSnapshot
-      .filter((user) => user.timedIn)
+    const workedHoursRows = userSummaries
+      .filter((user) => user.totalHours > 0)
       .map((user) => ({
-        userName: user.name,
-        value: 1,
-        secondaryInfo: `Checked in | ${toHoursLabel(user.totalHours)} productive hours`,
+        userName: user.userName,
+        value: Number(user.totalHours.toFixed(1)),
+        secondaryInfo: `Worked ${toHoursLabel(user.totalHours)} in selected range`,
       }));
-    const notTimedInRows = attendanceSnapshot
-      .filter((user) => !user.timedIn)
+    const timedInRows = userSummaries
+      .filter((user) => user.timedInCount > 0)
       .map((user) => ({
-        userName: user.name,
-        value: 1,
-        secondaryInfo: 'No time-in recorded | requires follow-up',
+        userName: user.userName,
+        value: user.timedInCount,
+        secondaryInfo: `${user.timedInCount} time-in event(s)`,
       }));
-    const lateUsersRows = attendanceSnapshot
-      .filter((user) => user.timedIn && user.lateMinutes > 0)
+    const notTimedInRows = userSummaries
+      .filter((user) => user.notTimedInCount > 0)
       .map((user) => ({
-        userName: user.name,
+        userName: user.userName,
+        value: user.notTimedInCount,
+        secondaryInfo: `${user.notTimedInCount} missed time-in record(s)`,
+      }));
+    const lateRows = userSummaries
+      .filter((user) => user.lateMinutes > 0)
+      .map((user) => ({
+        userName: user.userName,
         value: user.lateMinutes,
-        secondaryInfo: `Late by ${user.lateMinutes} minutes`,
+        secondaryInfo: `${user.lateMinutes} late minute(s) total`,
       }));
-    const onTimeRows = attendanceSnapshot
-      .filter((user) => user.timedIn && user.lateMinutes === 0)
+    const onTimeRows = userSummaries
+      .filter((user) => user.onTimeCount > 0)
       .map((user) => ({
-        userName: user.name,
-        value: 1,
-        secondaryInfo: `On-time compliance | ${toHoursLabel(user.totalHours)} worked`,
+        userName: user.userName,
+        value: user.onTimeCount,
+        secondaryInfo: `${user.onTimeCount} on-time shift(s)`,
       }));
-    const locationViolationRows = attendanceSnapshot
-      .filter((user) => user.locationViolation)
+    const locationViolationRows = userSummaries
+      .filter((user) => user.locationViolationCount > 0)
       .map((user) => ({
-        userName: user.name,
-        value: 1,
-        secondaryInfo: 'Outside allowed radius | validate attendance',
+        userName: user.userName,
+        value: user.locationViolationCount,
+        secondaryInfo: `${user.locationViolationCount} location violation event(s)`,
       }));
+
+    const timedInTotal = sumBreakdownValues(timedInRows);
+    const notTimedInTotal = sumBreakdownValues(notTimedInRows);
+    const onTimeTotal = sumBreakdownValues(onTimeRows);
 
     return [
       {
-        id: 'active-users',
-        title: 'Total Worked Hours Today',
-        value: totalWorkedHours.toFixed(1),
+        id: 'worked-hours',
+        title: 'Total Worked Hours',
+        value: Number(sumBreakdownValues(workedHoursRows).toFixed(1)),
         icon: Users,
         color: 'blue',
-        breakdownRows: activeUsersRows,
+        breakdownRows: workedHoursRows,
       },
       {
         id: 'timed-in',
         title: 'Users Who Timed In',
-        value: timedInRows.length,
+        value: timedInTotal,
         icon: UserCheck,
         color: 'green',
-        trend: { value: `${((timedInRows.length / attendanceSnapshot.length) * 100).toFixed(1)}%`, isPositive: true },
+        trend: {
+          value: `${(((timedInTotal / Math.max(timedInTotal + notTimedInTotal, 1)) * 100).toFixed(1))}%`,
+          isPositive: true,
+        },
         breakdownRows: timedInRows,
       },
       {
         id: 'not-timed-in',
         title: 'Users Not Timed In',
-        value: notTimedInRows.length,
+        value: notTimedInTotal,
         icon: UserX,
         color: 'red',
         breakdownRows: notTimedInRows,
       },
       {
-        id: 'late-users',
+        id: 'late-minutes',
         title: 'Total Late Minutes',
-        value: lateUsersRows.reduce((sum, row) => sum + row.value, 0),
+        value: sumBreakdownValues(lateRows),
         icon: Clock,
         color: 'yellow',
-        breakdownRows: lateUsersRows,
+        breakdownRows: lateRows,
       },
       {
         id: 'on-time',
         title: 'On-Time Users',
-        value: onTimeRows.length,
+        value: onTimeTotal,
         icon: TrendingUp,
         color: 'green',
-        trend: { value: `${((onTimeRows.length / Math.max(timedInRows.length, 1)) * 100).toFixed(1)}%`, isPositive: true },
+        trend: {
+          value: `${(((onTimeTotal / Math.max(timedInTotal, 1)) * 100).toFixed(1))}%`,
+          isPositive: true,
+        },
         breakdownRows: onTimeRows,
       },
       {
         id: 'location-violations',
         title: 'Location Violations',
-        value: locationViolationRows.length,
+        value: sumBreakdownValues(locationViolationRows),
         icon: AlertTriangle,
         color: 'red',
         breakdownRows: locationViolationRows,
       },
     ];
-  }, []);
+  }, [userSummaries]);
 
   const selectedKpi = kpiCards.find((kpi) => kpi.id === selectedKpiId) ?? null;
-  const sortedBreakdownRows = useMemo(
-    () => sortBreakdownRows(selectedKpi?.breakdownRows ?? []),
-    [selectedKpi]
-  );
+  const sortedBreakdownRows = useMemo(() => sortBreakdownRows(selectedKpi?.breakdownRows ?? []), [selectedKpi]);
   const breakdownTotal = useMemo(() => sumBreakdownValues(selectedKpi?.breakdownRows ?? []), [selectedKpi]);
-  const topContributor = sortedBreakdownRows[0] ?? null;
-  const averageValue = sortedBreakdownRows.length > 0 ? (breakdownTotal / sortedBreakdownRows.length).toFixed(2) : '0.00';
   const formattedBreakdownTotal = useMemo(() => {
     if (!selectedKpi) return '0';
-    if (selectedKpi.id === 'active-users') {
-      return breakdownTotal.toFixed(1);
-    }
+    if (selectedKpi.id === 'worked-hours') return breakdownTotal.toFixed(1);
     return `${Math.round(breakdownTotal)}`;
   }, [breakdownTotal, selectedKpi]);
+  const topContributor = sortedBreakdownRows[0] ?? null;
+  const averageValue = sortedBreakdownRows.length > 0 ? (breakdownTotal / sortedBreakdownRows.length).toFixed(2) : '0.00';
 
   const handleOpenBreakdown = (kpiId: string) => {
     setSelectedKpiId(kpiId);
@@ -183,12 +331,45 @@ export function OverviewPage() {
 
   return (
     <div className="space-y-6">
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="w-full md:max-w-[240px]">
+            <label className="text-sm text-gray-600">Time Filter</label>
+            <Select value={timeFilter} onValueChange={(value) => setTimeFilter(value as TimeFilterOption)}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select time range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="this-week">This Week</SelectItem>
+                <SelectItem value="this-2-weeks">This 2 Weeks</SelectItem>
+                <SelectItem value="this-month">This Month</SelectItem>
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {timeFilter === 'custom' && (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div>
+                <label className="text-sm text-gray-600">Start Date</label>
+                <Input type="date" value={customStartDate} onChange={(event) => setCustomStartDate(event.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <label className="text-sm text-gray-600">End Date</label>
+                <Input type="date" value={customEndDate} onChange={(event) => setCustomEndDate(event.target.value)} className="mt-1" />
+              </div>
+            </div>
+          )}
+          <p className="text-sm text-gray-500">Range: {rangeLabel}</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         {kpiCards.map((kpi) => (
           <KPICard
             key={kpi.id}
             title={kpi.title}
-            value={kpi.value}
+            value={kpi.id === 'worked-hours' ? Number(kpi.value).toFixed(1) : Math.round(kpi.value)}
             icon={kpi.icon}
             color={kpi.color}
             trend={kpi.trend}
@@ -202,47 +383,13 @@ export function OverviewPage() {
         <LateEmployeesTrendChart />
       </div>
 
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Today's Summary</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="border-l-4 border-green-500 pl-4">
-            <p className="text-sm text-gray-600">On-Time Rate</p>
-            <p className="text-2xl font-semibold text-gray-900">
-              {((kpiCards.find((k) => k.id === 'on-time')?.value ?? 0) / Math.max(kpiCards.find((k) => k.id === 'timed-in')?.value ?? 1, 1) * 100).toFixed(1)}%
-            </p>
-            <p className="text-xs text-green-600 mt-1">+ 2.3% from yesterday</p>
-          </div>
-          <div className="border-l-4 border-amber-500 pl-4">
-            <p className="text-sm text-gray-600">Average Late Time</p>
-            <p className="text-2xl font-semibold text-gray-900">
-              {(() => {
-                const lateUsers = attendanceSnapshot.filter((user) => user.lateMinutes > 0);
-                if (lateUsers.length === 0) return '0 min';
-                const totalLate = lateUsers.reduce((sum, user) => sum + user.lateMinutes, 0);
-                return `${Math.round(totalLate / lateUsers.length)} min`;
-              })()}
-            </p>
-            <p className="text-xs text-amber-600 mt-1">- 3 min from yesterday</p>
-          </div>
-          <div className="border-l-4 border-blue-500 pl-4">
-            <p className="text-sm text-gray-600">Location Compliance</p>
-            <p className="text-2xl font-semibold text-gray-900">
-              {((1 - (kpiCards.find((k) => k.id === 'location-violations')?.value ?? 0) / attendanceSnapshot.length) * 100).toFixed(1)}%
-            </p>
-            <p className="text-xs text-blue-600 mt-1">
-              {kpiCards.find((k) => k.id === 'location-violations')?.value ?? 0} violations detected
-            </p>
-          </div>
-        </div>
-      </div>
-
       <Dialog open={Boolean(selectedKpi)} onOpenChange={(open) => !open && setSelectedKpiId(null)}>
         <DialogContent className="w-[96vw] max-w-[900px] max-h-[90vh] overflow-hidden p-0">
           <DialogHeader>
             <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white px-6 py-5">
               <DialogTitle className="text-xl text-gray-900">{selectedKpi?.title} Breakdown</DialogTitle>
               <DialogDescription className="mt-1">
-                Ranked by KPI value descending for the current overview range.
+                Ranked by KPI value descending for {filterLabels[timeFilter]} ({rangeLabel}).
               </DialogDescription>
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="rounded-lg border border-blue-200 bg-white p-3">
@@ -265,7 +412,7 @@ export function OverviewPage() {
             {isBreakdownLoading ? (
               <div className="rounded-lg border border-gray-200 p-6 text-sm text-gray-600">Loading breakdown...</div>
             ) : sortedBreakdownRows.length === 0 ? (
-              <div className="rounded-lg border border-gray-200 p-6 text-sm text-gray-600">No user breakdown data available for this KPI.</div>
+              <div className="rounded-lg border border-gray-200 p-6 text-sm text-gray-600">No user breakdown data available for this KPI and time range.</div>
             ) : (
               <div className="space-y-3">
                 {topContributor && (
