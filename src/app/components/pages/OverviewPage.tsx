@@ -61,52 +61,53 @@ export function OverviewPage() {
   const [isBreakdownLoading, setIsBreakdownLoading] = useState(false);
 
   const kpiCards = useMemo<KpiCardConfig[]>(() => {
+    const totalWorkedHours = attendanceSnapshot.reduce((sum, user) => sum + user.totalHours, 0);
     const activeUsersRows = attendanceSnapshot.map((user) => ({
       userName: user.name,
-      value: 1,
-      secondaryInfo: `Total Hours: ${toHoursLabel(user.totalHours)}`,
+      value: Number(user.totalHours.toFixed(1)),
+      secondaryInfo: `Worked ${toHoursLabel(user.totalHours)} today`,
     }));
     const timedInRows = attendanceSnapshot
       .filter((user) => user.timedIn)
       .map((user) => ({
         userName: user.name,
         value: 1,
-        secondaryInfo: `Total Hours: ${toHoursLabel(user.totalHours)}`,
+        secondaryInfo: `Checked in | ${toHoursLabel(user.totalHours)} productive hours`,
       }));
     const notTimedInRows = attendanceSnapshot
       .filter((user) => !user.timedIn)
       .map((user) => ({
         userName: user.name,
         value: 1,
-        secondaryInfo: 'No time-in recorded',
+        secondaryInfo: 'No time-in recorded | requires follow-up',
       }));
     const lateUsersRows = attendanceSnapshot
       .filter((user) => user.timedIn && user.lateMinutes > 0)
       .map((user) => ({
         userName: user.name,
-        value: 1,
-        secondaryInfo: `Late by ${user.lateMinutes} min`,
+        value: user.lateMinutes,
+        secondaryInfo: `Late by ${user.lateMinutes} minutes`,
       }));
     const onTimeRows = attendanceSnapshot
       .filter((user) => user.timedIn && user.lateMinutes === 0)
       .map((user) => ({
         userName: user.name,
         value: 1,
-        secondaryInfo: `Total Hours: ${toHoursLabel(user.totalHours)}`,
+        secondaryInfo: `On-time compliance | ${toHoursLabel(user.totalHours)} worked`,
       }));
     const locationViolationRows = attendanceSnapshot
       .filter((user) => user.locationViolation)
       .map((user) => ({
         userName: user.name,
         value: 1,
-        secondaryInfo: 'Timed out outside allowed radius',
+        secondaryInfo: 'Outside allowed radius | validate attendance',
       }));
 
     return [
       {
         id: 'active-users',
-        title: 'Total Active Users Today',
-        value: attendanceSnapshot.length,
+        title: 'Total Worked Hours Today',
+        value: totalWorkedHours.toFixed(1),
         icon: Users,
         color: 'blue',
         breakdownRows: activeUsersRows,
@@ -130,8 +131,8 @@ export function OverviewPage() {
       },
       {
         id: 'late-users',
-        title: 'Late Users',
-        value: lateUsersRows.length,
+        title: 'Total Late Minutes',
+        value: lateUsersRows.reduce((sum, row) => sum + row.value, 0),
         icon: Clock,
         color: 'yellow',
         breakdownRows: lateUsersRows,
@@ -164,6 +165,13 @@ export function OverviewPage() {
   const breakdownTotal = useMemo(() => sumBreakdownValues(selectedKpi?.breakdownRows ?? []), [selectedKpi]);
   const topContributor = sortedBreakdownRows[0] ?? null;
   const averageValue = sortedBreakdownRows.length > 0 ? (breakdownTotal / sortedBreakdownRows.length).toFixed(2) : '0.00';
+  const formattedBreakdownTotal = useMemo(() => {
+    if (!selectedKpi) return '0';
+    if (selectedKpi.id === 'active-users') {
+      return breakdownTotal.toFixed(1);
+    }
+    return `${Math.round(breakdownTotal)}`;
+  }, [breakdownTotal, selectedKpi]);
 
   const handleOpenBreakdown = (kpiId: string) => {
     setSelectedKpiId(kpiId);
@@ -239,7 +247,7 @@ export function OverviewPage() {
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="rounded-lg border border-blue-200 bg-white p-3">
                   <p className="text-xs text-gray-500">Aggregated Total</p>
-                  <p className="text-lg font-semibold text-gray-900">{breakdownTotal}</p>
+                  <p className="text-lg font-semibold text-gray-900">{formattedBreakdownTotal}</p>
                 </div>
                 <div className="rounded-lg border border-blue-200 bg-white p-3">
                   <p className="text-xs text-gray-500">Users in Breakdown</p>
