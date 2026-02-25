@@ -50,6 +50,13 @@ interface TimeRecord {
   status: 'on-time' | 'late' | 'absent' | 'incomplete';
 }
 
+const ALLOWED_SITE = {
+  addressKeyword: 'fern building',
+  lat: 14.6048,
+  lng: 120.9884,
+  radiusMeters: 250,
+};
+
 const mockData: TimeRecord[] = [
   {
     id: '1',
@@ -257,6 +264,52 @@ export function TimeRecordsPage() {
     }
   };
 
+  const getDistanceMeters = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const toRadians = (value: number) => (value * Math.PI) / 180;
+    const earthRadius = 6371000;
+    const dLat = toRadians(lat2 - lat1);
+    const dLng = toRadians(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(earthRadius * c);
+  };
+
+  const isAllowedLocation = (location?: { lat?: number; lng?: number; address?: string } | null) => {
+    if (!location) return { isAllowed: false, distance: undefined as number | undefined };
+
+    if (typeof location.address === 'string' && location.address.toLowerCase().includes(ALLOWED_SITE.addressKeyword)) {
+      return { isAllowed: true, distance: 0 };
+    }
+
+    if (Number.isFinite(location.lat) && Number.isFinite(location.lng)) {
+      const distance = getDistanceMeters(location.lat as number, location.lng as number, ALLOWED_SITE.lat, ALLOWED_SITE.lng);
+      return { isAllowed: distance <= ALLOWED_SITE.radiusMeters, distance };
+    }
+
+    return { isAllowed: false, distance: undefined as number | undefined };
+  };
+
+  const getEffectiveLocationStatus = (
+    locationEntry: { lat?: number; lng?: number; address?: string } | null,
+    fallbackStatus: 'compliant' | 'outside' | 'no-data'
+  ) => {
+    if (!locationEntry) return { status: 'no-data' as const, distance: undefined as number | undefined };
+
+    const evaluation = isAllowedLocation(locationEntry);
+    if (evaluation.isAllowed) {
+      return { status: 'compliant' as const, distance: evaluation.distance };
+    }
+
+    if (evaluation.distance === undefined && fallbackStatus === 'no-data') {
+      return { status: 'no-data' as const, distance: undefined as number | undefined };
+    }
+
+    return { status: 'outside' as const, distance: evaluation.distance };
+  };
+
   const getTimeOutLocationLink = (record: TimeRecord) => {
     const latestTimeOutEntry = getLatestTimeOutEntry(record.timeOutEntries);
     const mapUrl = buildGoogleMapsUrl(latestTimeOutEntry);
@@ -287,6 +340,16 @@ export function TimeRecordsPage() {
       : latestTimeInEntry.address ?? 'View on map';
 
     return { mapUrl, label };
+  };
+
+  const getTimeInLocationMeta = (record: TimeRecord) => {
+    const latestTimeInEntry = getLatestTimeOutEntry(record.timeInEntries);
+    return getEffectiveLocationStatus(latestTimeInEntry, record.timeInLocation);
+  };
+
+  const getTimeOutLocationMeta = (record: TimeRecord) => {
+    const latestTimeOutEntry = getLatestTimeOutEntry(record.timeOutEntries);
+    return getEffectiveLocationStatus(latestTimeOutEntry, record.timeOutLocation);
   };
 
   const getCompactLocationText = (label: string) => {
@@ -334,8 +397,8 @@ export function TimeRecordsPage() {
       const matchesDistance =
         appliedFilters.distance === 'all' ||
         (appliedFilters.distance === 'nodata'
-          ? record.timeInLocation === 'no-data'
-          : record.timeInLocation === appliedFilters.distance);
+          ? getTimeInLocationMeta(record).status === 'no-data'
+          : getTimeInLocationMeta(record).status === appliedFilters.distance);
 
       return matchesSearch && matchesStore && matchesDate && matchesDistance;
     });
@@ -486,7 +549,10 @@ export function TimeRecordsPage() {
                       const timeInLocationLink = getTimeInLocationLink(record);
                       return (
                         <div className="space-y-1">
-                          {getLocationBadge(record.timeInLocation, record.timeInDistance)}
+                          {(() => {
+                            const meta = getTimeInLocationMeta(record);
+                            return getLocationBadge(meta.status, meta.distance ?? record.timeInDistance);
+                          })()}
                           {timeInLocationLink ? (
                             <a
                               href={timeInLocationLink.mapUrl}
@@ -520,7 +586,10 @@ export function TimeRecordsPage() {
                       const timeOutLocationLink = getTimeOutLocationLink(record);
                       return (
                         <div className="space-y-1">
-                          {getLocationBadge(record.timeOutLocation, record.timeOutDistance)}
+                          {(() => {
+                            const meta = getTimeOutLocationMeta(record);
+                            return getLocationBadge(meta.status, meta.distance ?? record.timeOutDistance);
+                          })()}
                           {timeOutLocationLink ? (
                             <a
                               href={timeOutLocationLink.mapUrl}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { AdminEditInfoModal } from "./components/AdminEditInfoModal";
@@ -28,11 +28,34 @@ const pagePaths: Record<string, string> = {
   "edit-breaklist": "/edit-breaklist",
 };
 
+const basePath = (() => {
+  const rawBase = import.meta.env.BASE_URL ?? "/";
+  const trimmed = rawBase.endsWith("/") && rawBase.length > 1
+    ? rawBase.slice(0, -1)
+    : rawBase;
+  return trimmed === "/" ? "" : trimmed;
+})();
+
+const withBasePath = (path: string) => {
+  if (basePath.length === 0) return path;
+  return `${basePath}${path}`;
+};
+
+const stripBasePath = (pathname: string) => {
+  if (basePath.length === 0) return pathname;
+  if (pathname === basePath) return "/";
+  if (pathname.startsWith(`${basePath}/`)) {
+    return pathname.slice(basePath.length);
+  }
+  return pathname;
+};
+
 const pathToPage = (pathname: string): string | null => {
+  const pathWithoutBase = stripBasePath(pathname);
   const normalized =
-    pathname.endsWith("/") && pathname.length > 1
-      ? pathname.slice(0, -1)
-      : pathname;
+    pathWithoutBase.endsWith("/") && pathWithoutBase.length > 1
+      ? pathWithoutBase.slice(0, -1)
+      : pathWithoutBase;
 
   if (normalized === "/dashboard") {
     return "overview";
@@ -58,10 +81,11 @@ export default function App() {
 
   useEffect(() => {
     const syncFromPath = () => {
+      const nextPathname = stripBasePath(window.location.pathname);
       const nextPage = pathToPage(window.location.pathname);
 
-      if (window.location.pathname === "/dashboard") {
-        window.history.replaceState({}, "", "/dashboard/overview");
+      if (nextPathname === "/dashboard") {
+        window.history.replaceState({}, "", withBasePath("/dashboard/overview"));
       }
 
       setActivePage(nextPage ?? "overview");
@@ -74,8 +98,9 @@ export default function App() {
 
   useEffect(() => {
     const nextPath = pagePaths[activePage] ?? "/dashboard/overview";
-    if (window.location.pathname !== nextPath) {
-      window.history.pushState({}, "", nextPath);
+    const nextPathWithBase = withBasePath(nextPath);
+    if (window.location.pathname !== nextPathWithBase) {
+      window.history.pushState({}, "", nextPathWithBase);
     }
   }, [activePage]);
 

@@ -77,22 +77,32 @@ const users = [
   { id: 'u8', name: 'Kevin Ramos' },
 ];
 
-const activityDates = [
-  '2026-01-30',
-  '2026-01-31',
-  '2026-02-01',
-  '2026-02-02',
-  '2026-02-03',
-  '2026-02-04',
-  '2026-02-05',
-  '2026-02-06',
-  '2026-02-07',
-  '2026-02-08',
-  '2026-02-09',
-  '2026-02-10',
-  '2026-02-11',
-  '2026-02-12',
-];
+const formatDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const generateActivityDates = (startDateStr: string, endDate: Date) => {
+  const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
+  const cursor = new Date(startYear, startMonth - 1, startDay);
+  const dates: string[] = [];
+
+  while (cursor <= endDate) {
+    const dayOfWeek = cursor.getDay();
+    // Skip Saturday (6) and Sunday (0) to keep timekeeping data workday-only.
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      dates.push(formatDate(cursor));
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return dates;
+};
+
+const today = new Date();
+const activityDates = generateActivityDates('2026-01-30', today);
 
 const attendanceRecords: AttendanceRecord[] = activityDates.flatMap((date, dateIndex) =>
   users.map((user, userIndex) => {
@@ -130,10 +140,7 @@ export function OverviewPage() {
   const [isBreakdownLoading, setIsBreakdownLoading] = useState(false);
   const [timeFilter, setTimeFilter] = useState<TimeFilterOption>('today');
 
-  const latestRecordDate = useMemo(
-    () => attendanceRecords.reduce((latest, current) => (current.date > latest ? current.date : latest), attendanceRecords[0]?.date ?? ''),
-    []
-  );
+  const latestRecordDate = useMemo(() => formatDate(new Date()), []);
 
   const defaultCustomRange = useMemo(() => getPresetRange('this-week', latestRecordDate), [latestRecordDate]);
   const [customStartDate, setCustomStartDate] = useState(defaultCustomRange.start);
@@ -153,12 +160,49 @@ export function OverviewPage() {
     return `${activeRange.start} to ${activeRange.end}`;
   }, [activeRange]);
 
+  const lateTrendTitleSuffix = useMemo(() => {
+    if (!activeRange.start || !activeRange.end) {
+      return filterLabels[timeFilter];
+    }
+    if (timeFilter === 'today') {
+      return activeRange.end;
+    }
+    return rangeLabel;
+  }, [activeRange, timeFilter, rangeLabel]);
+
   const filteredRecords = useMemo(() => {
     if (!activeRange.start || !activeRange.end) {
       return [];
     }
     return attendanceRecords.filter((record) => isDateInRange(record.date, activeRange.start, activeRange.end));
   }, [activeRange]);
+
+  const attendanceDistributionData = useMemo(() => {
+    const onTimeCount = filteredRecords.filter((record) => record.timedIn && record.lateMinutes === 0).length;
+    const lateCount = filteredRecords.filter((record) => record.timedIn && record.lateMinutes > 0).length;
+    const absentCount = filteredRecords.filter((record) => !record.timedIn).length;
+
+    return [
+      { name: 'On-Time', value: onTimeCount, color: '#10b981' },
+      { name: 'Late', value: lateCount, color: '#f59e0b' },
+      { name: 'Absent', value: absentCount, color: '#ef4444' },
+    ];
+  }, [filteredRecords]);
+
+  const lateTrendData = useMemo(() => {
+    const dateToLateCount = new Map<string, number>();
+    filteredRecords.forEach((record) => {
+      if (record.lateMinutes <= 0) return;
+      dateToLateCount.set(record.date, (dateToLateCount.get(record.date) ?? 0) + 1);
+    });
+
+    return [...dateToLateCount.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, count]) => ({
+        date: new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        count,
+      }));
+  }, [filteredRecords]);
 
   const userSummaries = useMemo<UserSummary[]>(() => {
     const initialMap = new Map<string, UserSummary>();
@@ -379,8 +423,8 @@ export function OverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AttendanceChart />
-        <LateEmployeesTrendChart />
+        <AttendanceChart data={attendanceDistributionData} />
+        <LateEmployeesTrendChart data={lateTrendData} titleSuffix={lateTrendTitleSuffix} />
       </div>
 
       <Dialog open={Boolean(selectedKpi)} onOpenChange={(open) => !open && setSelectedKpiId(null)}>
