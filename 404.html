@@ -4,10 +4,9 @@
     <meta charset="utf-8" />
     <title>Sparkle Timekeeping Admin Dashboard</title>
     <script>
-      // GitHub Pages SPA redirect for project pages (/Dashboard-STK).
-      // Keeps one path segment (repo name) and forwards the rest via querystring.
+      // GitHub Pages SPA redirect for user/organization pages (root deployment).
       (function () {
-        var segmentsToKeep = 1;
+        var segmentsToKeep = 0;
         var locationRef = window.location;
         var newPath =
           locationRef.protocol +
