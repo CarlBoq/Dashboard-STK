@@ -19,7 +19,7 @@ interface SidebarProps {
   onPageChange: (page: string) => void;
   isOpen: boolean;
   onClose: () => void;
-}
+} 
 
 interface MenuItem {
   id: string;
@@ -56,11 +56,11 @@ export function Sidebar({ activePage, onPageChange, isOpen, onClose }: SidebarPr
       label: 'Time Management', 
       icon: Calendar,
       children: [
-        { id: 'time-adjustment', label: 'Time Adjustment', icon: Edit3 },
         { id: 'schedules', label: 'Schedules', icon: Calendar },
         { id: 'breaklist-summary', label: 'Breaklist Summary', icon: Coffee },
         { id: 'edit-breaklist', label: 'Edit Breaklist', icon: FileEdit },
         { id: 'generated-breaklist', label: 'Generated Breaklist', icon: List },
+        { id: 'time-adjustment', label: 'Time Adjustment', icon: Edit3 },
       ]
     },
   ];

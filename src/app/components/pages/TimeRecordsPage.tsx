@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { MapPin, Eye, Calendar, Search, Filter, Map } from 'lucide-react';
+import { MapPin, Eye, Calendar, Search, Filter, Map, ExternalLink } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -15,6 +15,7 @@ import {
 } from '../ui/table';
 import { TablePaginationControls } from '../TablePaginationControls';
 import { useTablePagination } from '../hooks/useTablePagination';
+import { buildGoogleMapsUrl, getLatestTimeOutEntry } from '../../utils/timekeeping';
 
 interface TimeRecord {
   id: string;
@@ -27,11 +28,23 @@ interface TimeRecord {
   actualTimeIn: string;
   timeInLocation: 'compliant' | 'outside' | 'no-data';
   timeInDistance?: number;
+  timeInEntries?: Array<{
+    timestamp: string;
+    lat?: number;
+    lng?: number;
+    address?: string;
+  }>;
   breakIn: string;
   breakOut: string;
   actualTimeOut: string;
   timeOutLocation: 'compliant' | 'outside' | 'no-data';
   timeOutDistance?: number;
+  timeOutEntries?: Array<{
+    timestamp: string;
+    lat?: number;
+    lng?: number;
+    address?: string;
+  }>;
   workedDuration: string;
   lateMinutes: number;
   status: 'on-time' | 'late' | 'absent' | 'incomplete';
@@ -49,11 +62,18 @@ const mockData: TimeRecord[] = [
     actualTimeIn: '08:55 AM',
     timeInLocation: 'compliant',
     timeInDistance: 45,
+    timeInEntries: [
+      { timestamp: '2026-02-12T08:55:00', lat: 14.6048, lng: 120.9884, address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
+    ],
     breakIn: '12:00 PM',
     breakOut: '01:00 PM',
     actualTimeOut: '05:03 PM',
     timeOutLocation: 'compliant',
     timeOutDistance: 52,
+    timeOutEntries: [
+      { timestamp: '2026-02-12T16:55:00', address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
+      { timestamp: '2026-02-12T17:03:00', lat: 14.6048, lng: 120.9884, address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
+    ],
     workedDuration: '7h 08m',
     lateMinutes: 0,
     status: 'on-time',
@@ -69,11 +89,17 @@ const mockData: TimeRecord[] = [
     actualTimeIn: '08:15 AM',
     timeInLocation: 'compliant',
     timeInDistance: 120,
+    timeInEntries: [
+      { timestamp: '2026-02-12T08:15:00', address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
+    ],
     breakIn: '11:30 AM',
     breakOut: '12:00 PM',
     actualTimeOut: '04:10 PM',
     timeOutLocation: 'compliant',
     timeOutDistance: 115,
+    timeOutEntries: [
+      { timestamp: '2026-02-12T16:10:00', lat: 14.6048, lng: 120.9884, address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
+    ],
     workedDuration: '7h 25m',
     lateMinutes: 15,
     status: 'late',
@@ -89,11 +115,17 @@ const mockData: TimeRecord[] = [
     actualTimeIn: '10:35 AM',
     timeInLocation: 'outside',
     timeInDistance: 580,
+    timeInEntries: [
+      { timestamp: '2026-02-12T10:35:00', lat: 14.5825, lng: 120.9798, address: 'Rizal Park, Ermita, Manila, 1000 Metro Manila' },
+    ],
     breakIn: '01:00 PM',
     breakOut: '02:00 PM',
     actualTimeOut: '06:15 PM',
     timeOutLocation: 'outside',
     timeOutDistance: 595,
+    timeOutEntries: [
+      { timestamp: '2026-02-12T18:15:00', address: 'Rizal Park, Ermita, Manila, 1000 Metro Manila' },
+    ],
     workedDuration: '6h 40m',
     lateMinutes: 35,
     status: 'late',
@@ -109,10 +141,14 @@ const mockData: TimeRecord[] = [
     actualTimeIn: '06:58 AM',
     timeInLocation: 'compliant',
     timeInDistance: 85,
+    timeInEntries: [
+      { timestamp: '2026-02-12T06:58:00', address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
+    ],
     breakIn: '-',
     breakOut: '-',
     actualTimeOut: '-',
     timeOutLocation: 'no-data',
+    timeOutEntries: [],
     workedDuration: '-',
     lateMinutes: 0,
     status: 'incomplete',
@@ -127,10 +163,12 @@ const mockData: TimeRecord[] = [
     scheduledHours: '7h 00m',
     actualTimeIn: '09:00 AM',
     timeInLocation: 'no-data',
+    timeInEntries: [],
     breakIn: '12:30 PM',
     breakOut: '01:30 PM',
     actualTimeOut: '05:00 PM',
     timeOutLocation: 'no-data',
+    timeOutEntries: [],
     workedDuration: '7h 00m',
     lateMinutes: 0,
     status: 'on-time',
@@ -145,10 +183,12 @@ const mockData: TimeRecord[] = [
     scheduledHours: '7h 30m',
     actualTimeIn: '-',
     timeInLocation: 'no-data',
+    timeInEntries: [],
     breakIn: '-',
     breakOut: '-',
     actualTimeOut: '-',
     timeOutLocation: 'no-data',
+    timeOutEntries: [],
     workedDuration: '-',
     lateMinutes: 0,
     status: 'absent',
@@ -179,7 +219,7 @@ export function TimeRecordsPage() {
   };
 
   const handleViewOnMap = () => {
-    window.open('https://maps.google.com/?q=40.7128,-74.0060', '_blank', 'noopener,noreferrer');
+    window.open('https://maps.google.com/?q=14.6048,120.9884', '_blank', 'noopener,noreferrer');
   };
 
   const handleViewDetails = (record: TimeRecord) => {
@@ -215,6 +255,45 @@ export function TimeRecordsPage() {
       default:
         return null;
     }
+  };
+
+  const getTimeOutLocationLink = (record: TimeRecord) => {
+    const latestTimeOutEntry = getLatestTimeOutEntry(record.timeOutEntries);
+    const mapUrl = buildGoogleMapsUrl(latestTimeOutEntry);
+
+    if (!latestTimeOutEntry || !mapUrl) {
+      return null;
+    }
+
+    const hasCoordinates = Number.isFinite(latestTimeOutEntry.lat) && Number.isFinite(latestTimeOutEntry.lng);
+    const label = hasCoordinates
+      ? `${latestTimeOutEntry.lat}, ${latestTimeOutEntry.lng}`
+      : latestTimeOutEntry.address ?? 'View on map';
+
+    return { mapUrl, label };
+  };
+
+  const getTimeInLocationLink = (record: TimeRecord) => {
+    const latestTimeInEntry = getLatestTimeOutEntry(record.timeInEntries);
+    const mapUrl = buildGoogleMapsUrl(latestTimeInEntry);
+
+    if (!latestTimeInEntry || !mapUrl) {
+      return null;
+    }
+
+    const hasCoordinates = Number.isFinite(latestTimeInEntry.lat) && Number.isFinite(latestTimeInEntry.lng);
+    const label = hasCoordinates
+      ? `${latestTimeInEntry.lat}, ${latestTimeInEntry.lng}`
+      : latestTimeInEntry.address ?? 'View on map';
+
+    return { mapUrl, label };
+  };
+
+  const getCompactLocationText = (label: string) => {
+    if (!label) return '';
+    const trimmed = label.trim();
+    if (trimmed.length <= 42) return trimmed;
+    return `${trimmed.slice(0, 42)}...`;
   };
 
   const getStatusBadge = (status: string) => {
@@ -273,10 +352,10 @@ export function TimeRecordsPage() {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Store Location</h3>
             <div className="space-y-1 text-sm">
               <p className="text-gray-600">
-                <span className="font-medium">Address:</span> 123 Main Street, Downtown District
+                <span className="font-medium">Address:</span> Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468
               </p>
               <p className="text-gray-600">
-                <span className="font-medium">Coordinates:</span> 40.7128 N, 74.0060 W
+                <span className="font-medium">Coordinates:</span> 14.6048 N, 120.9884 E
               </p>
               <p className="text-gray-600">
                 <span className="font-medium">Reference:</span> Store 1 - Headquarters
@@ -402,7 +481,30 @@ export function TimeRecordsPage() {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell>{getLocationBadge(record.timeInLocation, record.timeInDistance)}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const timeInLocationLink = getTimeInLocationLink(record);
+                      return (
+                        <div className="space-y-1">
+                          {getLocationBadge(record.timeInLocation, record.timeInDistance)}
+                          {timeInLocationLink ? (
+                            <a
+                              href={timeInLocationLink.mapUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-[#1F4FD8] hover:text-[#1845b8] hover:underline"
+                              title={timeInLocationLink.label}
+                            >
+                              <span className="max-w-[180px] truncate">{getCompactLocationText(timeInLocationLink.label)}</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          ) : (
+                            <span className="inline-block text-xs text-gray-400">N/A</span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell className="text-sm text-gray-600">
                     {record.breakIn} / {record.breakOut}
                   </TableCell>
@@ -413,7 +515,30 @@ export function TimeRecordsPage() {
                       <span className="text-gray-900 font-medium">{record.actualTimeOut}</span>
                     )}
                   </TableCell>
-                  <TableCell>{getLocationBadge(record.timeOutLocation, record.timeOutDistance)}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const timeOutLocationLink = getTimeOutLocationLink(record);
+                      return (
+                        <div className="space-y-1">
+                          {getLocationBadge(record.timeOutLocation, record.timeOutDistance)}
+                          {timeOutLocationLink ? (
+                            <a
+                              href={timeOutLocationLink.mapUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-[#1F4FD8] hover:text-[#1845b8] hover:underline"
+                              title={timeOutLocationLink.label}
+                            >
+                              <span className="max-w-[180px] truncate">{getCompactLocationText(timeOutLocationLink.label)}</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          ) : (
+                            <span className="inline-block text-xs text-gray-400">N/A</span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell className="text-sm font-medium text-gray-900">{record.workedDuration}</TableCell>
                   <TableCell>
                     {record.lateMinutes > 0 ? (
