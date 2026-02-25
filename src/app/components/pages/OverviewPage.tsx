@@ -66,6 +66,15 @@ interface KpiCardConfig {
   breakdownRows: KpiBreakdownRow[];
 }
 
+interface AttendanceExceptionRow {
+  id: string;
+  date: string;
+  userName: string;
+  issueType: 'No Time-In' | 'Late Arrival' | 'Location Violation';
+  severity: 'high' | 'medium';
+  details: string;
+}
+
 const users = [
   { id: 'u1', name: 'Sarah Johnson' },
   { id: 'u2', name: 'Michael Chen' },
@@ -244,6 +253,49 @@ export function OverviewPage() {
     });
 
     return [...initialMap.values()];
+  }, [filteredRecords]);
+
+  const attendanceExceptionRows = useMemo<AttendanceExceptionRow[]>(() => {
+    const rows: AttendanceExceptionRow[] = [];
+
+    filteredRecords.forEach((record) => {
+      if (!record.timedIn) {
+        rows.push({
+          id: `${record.userId}-${record.date}-no-time-in`,
+          date: record.date,
+          userName: record.userName,
+          issueType: 'No Time-In',
+          severity: 'high',
+          details: 'Missing time-in record',
+        });
+      }
+
+      if (record.lateMinutes > 0) {
+        rows.push({
+          id: `${record.userId}-${record.date}-late`,
+          date: record.date,
+          userName: record.userName,
+          issueType: 'Late Arrival',
+          severity: record.lateMinutes >= 20 ? 'high' : 'medium',
+          details: `${record.lateMinutes} minute(s) late`,
+        });
+      }
+
+      if (record.locationViolation) {
+        rows.push({
+          id: `${record.userId}-${record.date}-location`,
+          date: record.date,
+          userName: record.userName,
+          issueType: 'Location Violation',
+          severity: 'high',
+          details: 'Outside allowed radius',
+        });
+      }
+    });
+
+    return rows
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 12);
   }, [filteredRecords]);
 
   const kpiCards = useMemo<KpiCardConfig[]>(() => {
@@ -425,6 +477,51 @@ export function OverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <AttendanceChart data={attendanceDistributionData} />
         <LateEmployeesTrendChart data={lateTrendData} titleSuffix={lateTrendTitleSuffix} />
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Attendance Exceptions</h3>
+          <p className="text-sm text-gray-500 mt-1">Most important records needing admin follow-up for the selected range</p>
+        </div>
+        <div className="overflow-x-auto">
+          {attendanceExceptionRows.length === 0 ? (
+            <div className="p-6 text-sm text-gray-500">No attendance exceptions found for this range.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Issue</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Details</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {attendanceExceptionRows.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="text-sm text-gray-600">{row.date}</TableCell>
+                    <TableCell className="font-medium text-gray-900">{row.userName}</TableCell>
+                    <TableCell className="text-sm text-gray-700">{row.issueType}</TableCell>
+                    <TableCell>
+                      <Badge
+                        className={
+                          row.severity === 'high'
+                            ? 'bg-red-100 text-red-700 hover:bg-red-100'
+                            : 'bg-amber-100 text-amber-700 hover:bg-amber-100'
+                        }
+                      >
+                        {row.severity === 'high' ? 'High' : 'Medium'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-600">{row.details}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
       </div>
 
       <Dialog open={Boolean(selectedKpi)} onOpenChange={(open) => !open && setSelectedKpiId(null)}>
