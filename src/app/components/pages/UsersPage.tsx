@@ -16,6 +16,7 @@ import {
 } from '../ui/table';
 import { TablePaginationControls } from '../TablePaginationControls';
 import { useTablePagination } from '../hooks/useTablePagination';
+import { dashboardUsers, type DashboardUser } from '../../data/timekeepingData';
 
 const QR_SIZE = 29;
 
@@ -55,149 +56,10 @@ function buildExampleQr(seed: string): boolean[][] {
   return matrix;
 }
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  company: string;
-  phone: string;
-  role: string;
-  verificationStatus: 'verified' | 'pending' | 'unverified';
-  accountStatus: 'active' | 'suspended' | 'inactive';
-  missingDocuments: number;
-  lastTimeIn: string;
-  activityStatus: 'active' | 'no-recent-activity';
-  assignedSchedule: string;
-  assignedStore: string;
-}
-
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@company.com',
-    company: 'TechCorp',
-    phone: '+1 (555) 123-4567',
-    role: 'Employee',
-    verificationStatus: 'verified',
-    accountStatus: 'active',
-    missingDocuments: 0,
-    lastTimeIn: '2026-02-12 08:55 AM',
-    activityStatus: 'active',
-    assignedSchedule: 'Morning Shift (9AM-5PM)',
-    assignedStore: 'Store 1 - Downtown',
-  },
-  {
-    id: '2',
-    name: 'Michael Chen',
-    email: 'michael.chen@company.com',
-    company: 'TechCorp',
-    phone: '+1 (555) 234-5678',
-    role: 'Employee',
-    verificationStatus: 'verified',
-    accountStatus: 'active',
-    missingDocuments: 0,
-    lastTimeIn: '2026-02-12 08:15 AM',
-    activityStatus: 'active',
-    assignedSchedule: 'Early Shift (8AM-4PM)',
-    assignedStore: 'Store 1 - Downtown',
-  },
-  {
-    id: '3',
-    name: 'Emily Rodriguez',
-    email: 'emily.rodriguez@company.com',
-    company: 'TechCorp',
-    phone: '+1 (555) 345-6789',
-    role: 'Team Leader',
-    verificationStatus: 'verified',
-    accountStatus: 'active',
-    missingDocuments: 1,
-    lastTimeIn: '2026-02-12 10:35 AM',
-    activityStatus: 'active',
-    assignedSchedule: 'Mid Shift (10AM-6PM)',
-    assignedStore: 'Store 2 - Uptown',
-  },
-  {
-    id: '4',
-    name: 'David Park',
-    email: 'david.park@company.com',
-    company: 'TechCorp',
-    phone: '+1 (555) 456-7890',
-    role: 'Employee',
-    verificationStatus: 'pending',
-    accountStatus: 'active',
-    missingDocuments: 2,
-    lastTimeIn: '2026-02-12 06:58 AM',
-    activityStatus: 'active',
-    assignedSchedule: 'Early Shift (7AM-3PM)',
-    assignedStore: 'Headquarters',
-  },
-  {
-    id: '5',
-    name: 'Jessica Williams',
-    email: 'jessica.williams@company.com',
-    company: 'RetailCo',
-    phone: '+1 (555) 567-8901',
-    role: 'Employee',
-    verificationStatus: 'verified',
-    accountStatus: 'active',
-    missingDocuments: 0,
-    lastTimeIn: '2026-02-12 09:00 AM',
-    activityStatus: 'active',
-    assignedSchedule: 'Morning Shift (9AM-5PM)',
-    assignedStore: 'Store 3 - Westside',
-  },
-  {
-    id: '6',
-    name: 'Robert Martinez',
-    email: 'robert.martinez@company.com',
-    company: 'RetailCo',
-    phone: '+1 (555) 678-9012',
-    role: 'Employee',
-    verificationStatus: 'unverified',
-    accountStatus: 'suspended',
-    missingDocuments: 3,
-    lastTimeIn: '2026-02-05 08:30 AM',
-    activityStatus: 'no-recent-activity',
-    assignedSchedule: 'Morning Shift (8:30AM-4:30PM)',
-    assignedStore: 'Store 1 - Downtown',
-  },
-  {
-    id: '7',
-    name: 'Amanda Thompson',
-    email: 'amanda.thompson@company.com',
-    company: 'TechCorp',
-    phone: '+1 (555) 789-0123',
-    role: 'Manager',
-    verificationStatus: 'verified',
-    accountStatus: 'active',
-    missingDocuments: 0,
-    lastTimeIn: '2026-02-12 09:08 AM',
-    activityStatus: 'active',
-    assignedSchedule: 'Morning Shift (9AM-5PM)',
-    assignedStore: 'Store 1 - Downtown',
-  },
-  {
-    id: '8',
-    name: 'Christopher Lee',
-    email: 'christopher.lee@company.com',
-    company: 'RetailCo',
-    phone: '+1 (555) 890-1234',
-    role: 'Employee',
-    verificationStatus: 'verified',
-    accountStatus: 'active',
-    missingDocuments: 0,
-    lastTimeIn: '2026-02-12 10:00 AM',
-    activityStatus: 'active',
-    assignedSchedule: 'Mid Shift (10AM-6PM)',
-    assignedStore: 'Store 2 - Uptown',
-  },
-];
-
 export function UsersPage() {
   const [actionConfig, setActionConfig] = useState<ActionFlowConfig | null>(null);
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [qrUser, setQrUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<DashboardUser[]>(dashboardUsers);
+  const [qrUser, setQrUser] = useState<DashboardUser | null>(null);
   const [filters, setFilters] = useState({
     search: '',
     company: 'all',
@@ -206,7 +68,7 @@ export function UsersPage() {
   });
   const [appliedFilters, setAppliedFilters] = useState(filters);
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: DashboardUser) => {
     setActionConfig({
       title: `Edit User: ${user.name}`,
       description: 'Update user placeholder fields.',
@@ -225,7 +87,7 @@ export function UsersPage() {
               ? {
                   ...item,
                   role: values.role || item.role,
-                  accountStatus: (values.status as User['accountStatus']) || item.accountStatus,
+                  accountStatus: (values.status as DashboardUser['accountStatus']) || item.accountStatus,
                   company: values.company || item.company,
                 }
               : item
@@ -235,7 +97,7 @@ export function UsersPage() {
     });
   };
 
-  const handleViewUser = (user: User) => {
+  const handleViewUser = (user: DashboardUser) => {
     setActionConfig({
       title: `View User Details: ${user.name}`,
       description: 'This section is view-only.',
@@ -248,7 +110,7 @@ export function UsersPage() {
     });
   };
 
-  const handleArchiveUser = (user: User) => {
+  const handleArchiveUser = (user: DashboardUser) => {
     setActionConfig({
       title: `Archive User: ${user.name}`,
       description: 'Archive user placeholder action.',
@@ -265,7 +127,7 @@ export function UsersPage() {
             item.id === user.id
               ? {
                   ...item,
-                  accountStatus: (values.status as User['accountStatus']) || 'inactive',
+                  accountStatus: (values.status as DashboardUser['accountStatus']) || 'inactive',
                 }
               : item
           )

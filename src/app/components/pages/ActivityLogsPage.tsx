@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FileText, AlertTriangle, XCircle, Activity, Calendar, Search, Filter } from 'lucide-react';
+import { FileText, XCircle, Activity, Calendar, Search, Filter } from 'lucide-react';
 import { KPICard } from '../KPICard';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -15,135 +15,13 @@ import {
 } from '../ui/table';
 import { TablePaginationControls } from '../TablePaginationControls';
 import { useTablePagination } from '../hooks/useTablePagination';
+import { activityLogs } from '../../data/timekeepingData';
 
-interface ActivityLog {
-  id: string;
-  timestamp: string;
-  user: string;
-  role: string;
-  affectedEmployee: string;
-  activity: string;
-  category: 'time-record' | 'user-management' | 'adjustment' | 'system';
-  status: 'success' | 'failed';
-  details: string;
-}
-
-const mockLogs: ActivityLog[] = [
-  {
-    id: '1',
-    timestamp: '2026-02-12 09:15:23',
-    user: 'Sarah Johnson',
-    role: 'Employee',
-    affectedEmployee: 'Sarah Johnson',
-    activity: 'Clocked in',
-    category: 'time-record',
-    status: 'success',
-    details: 'Time-in recorded at Store 1 - Downtown',
-  },
-  {
-    id: '2',
-    timestamp: '2026-02-12 09:18:45',
-    user: 'Michael Chen',
-    role: 'Employee',
-    affectedEmployee: 'Michael Chen',
-    activity: 'Late clock-in',
-    category: 'time-record',
-    status: 'success',
-    details: 'Clocked in 15 minutes late',
-  },
-  {
-    id: '3',
-    timestamp: '2026-02-12 09:22:10',
-    user: 'Admin User',
-    role: 'Administrator',
-    affectedEmployee: 'Emily Rodriguez',
-    activity: 'Time adjustment',
-    category: 'adjustment',
-    status: 'success',
-    details: 'Manually adjusted time-in from 10:40 AM to 10:00 AM',
-  },
-  {
-    id: '4',
-    timestamp: '2026-02-12 09:35:12',
-    user: 'Emily Rodriguez',
-    role: 'Employee',
-    affectedEmployee: 'Emily Rodriguez',
-    activity: 'Location violation',
-    category: 'time-record',
-    status: 'success',
-    details: 'Clocked in outside allowed radius (580m from reference)',
-  },
-  {
-    id: '5',
-    timestamp: '2026-02-12 09:40:33',
-    user: 'David Park',
-    role: 'Employee',
-    affectedEmployee: 'David Park',
-    activity: 'Clocked in',
-    category: 'time-record',
-    status: 'success',
-    details: 'Time-in recorded at Headquarters',
-  },
-  {
-    id: '6',
-    timestamp: '2026-02-12 10:12:05',
-    user: 'Unknown User',
-    role: 'N/A',
-    affectedEmployee: 'N/A',
-    activity: 'Authentication failed',
-    category: 'system',
-    status: 'failed',
-    details: 'Failed login attempt - Invalid credentials',
-  },
-  {
-    id: '7',
-    timestamp: '2026-02-12 10:25:18',
-    user: 'Admin User',
-    role: 'Administrator',
-    affectedEmployee: 'New Employee',
-    activity: 'User created',
-    category: 'user-management',
-    status: 'success',
-    details: 'New employee account created',
-  },
-  {
-    id: '8',
-    timestamp: '2026-02-12 11:08:42',
-    user: 'Admin User',
-    role: 'Administrator',
-    affectedEmployee: 'Robert Martinez',
-    activity: 'Schedule updated',
-    category: 'user-management',
-    status: 'success',
-    details: 'Assigned to new schedule: Morning Shift',
-  },
-  {
-    id: '9',
-    timestamp: '2026-02-12 11:30:55',
-    user: 'Christopher Lee',
-    role: 'Employee',
-    affectedEmployee: 'Christopher Lee',
-    activity: 'Clocked in',
-    category: 'time-record',
-    status: 'success',
-    details: 'Time-in recorded at Store 2 - Uptown',
-  },
-  {
-    id: '10',
-    timestamp: '2026-02-12 05:03:17',
-    user: 'Sarah Johnson',
-    role: 'Employee',
-    affectedEmployee: 'Sarah Johnson',
-    activity: 'Clocked out',
-    category: 'time-record',
-    status: 'success',
-    details: 'Time-out recorded at Store 1 - Downtown',
-  },
-];
+const getLatestLogDate = () => activityLogs[0]?.timestamp.slice(0, 10) ?? '';
 
 export function ActivityLogsPage() {
   const [filters, setFilters] = useState({
-    date: '2026-02-12',
+    date: getLatestLogDate(),
     companyStore: 'all',
     activityType: 'all',
     search: '',
@@ -183,7 +61,7 @@ export function ActivityLogsPage() {
   };
 
   const filteredLogs = useMemo(() => {
-    return mockLogs.filter((log) => {
+    return activityLogs.filter((log) => {
       const searchLower = appliedFilters.search.trim().toLowerCase();
       const matchesSearch =
         searchLower.length === 0 ||
@@ -196,12 +74,11 @@ export function ActivityLogsPage() {
         appliedFilters.date.length === 0 ||
         log.timestamp.startsWith(appliedFilters.date);
 
-      const detailsLower = log.details.toLowerCase();
       const matchesCompanyStore =
         appliedFilters.companyStore === 'all' ||
-        (appliedFilters.companyStore === 'hq' && detailsLower.includes('headquarters')) ||
-        (appliedFilters.companyStore === 'store1' && detailsLower.includes('store 1')) ||
-        (appliedFilters.companyStore === 'store2' && detailsLower.includes('store 2'));
+        (appliedFilters.companyStore === 'hq' && log.storeKey === 'hq') ||
+        (appliedFilters.companyStore === 'store1' && log.storeKey === 'store1') ||
+        (appliedFilters.companyStore === 'store2' && log.storeKey === 'store2');
 
       const matchesActivityType =
         appliedFilters.activityType === 'all' ||
@@ -210,6 +87,24 @@ export function ActivityLogsPage() {
       return matchesSearch && matchesDate && matchesCompanyStore && matchesActivityType;
     });
   }, [appliedFilters]);
+
+  const todayActivities = useMemo(() => {
+    if (appliedFilters.date.length === 0) return 0;
+    return activityLogs.filter((log) => log.timestamp.startsWith(appliedFilters.date)).length;
+  }, [appliedFilters.date]);
+
+  const thisWeekActivities = useMemo(() => {
+    const referenceDate = appliedFilters.date.length > 0 ? new Date(appliedFilters.date) : new Date();
+    const startDate = new Date(referenceDate);
+    startDate.setDate(referenceDate.getDate() - 6);
+    const endDate = referenceDate.getTime();
+    return activityLogs.filter((log) => {
+      const logDate = new Date(log.timestamp.slice(0, 10)).getTime();
+      return logDate >= startDate.getTime() && logDate <= endDate;
+    }).length;
+  }, [appliedFilters.date]);
+
+  const failedAttempts = useMemo(() => activityLogs.filter((log) => log.status === 'failed').length, []);
 
   const logsPagination = useTablePagination(filteredLogs);
   const paginatedLogs = logsPagination.paginatedItems;
@@ -220,26 +115,25 @@ export function ActivityLogsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
           title="Total Activities"
-          value="2,847"
+          value={activityLogs.length.toLocaleString()}
           icon={FileText}
           color="blue"
         />
         <KPICard
           title="Today's Activities"
-          value="247"
+          value={todayActivities.toLocaleString()}
           icon={Activity}
           color="green"
-          trend={{ value: "+18", isPositive: true }}
         />
         <KPICard
           title="This Week"
-          value="1,432"
+          value={thisWeekActivities.toLocaleString()}
           icon={Calendar}
           color="purple"
         />
         <KPICard
           title="Failed Attempts"
-          value="3"
+          value={failedAttempts.toLocaleString()}
           icon={XCircle}
           color="red"
         />

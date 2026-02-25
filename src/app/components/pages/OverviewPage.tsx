@@ -24,18 +24,9 @@ import {
   sortBreakdownRows,
   sumBreakdownValues,
 } from '../../utils/timekeeping';
+import { timekeepingRecords } from '../../data/timekeepingData';
 
 type TimeFilterOption = 'today' | 'this-week' | 'this-2-weeks' | 'this-month' | 'custom';
-
-interface AttendanceRecord {
-  userId: string;
-  userName: string;
-  date: string;
-  timedIn: boolean;
-  totalHours: number;
-  lateMinutes: number;
-  locationViolation: boolean;
-}
 
 interface UserSummary {
   userId: string;
@@ -77,64 +68,25 @@ interface AttendanceExceptionRow {
   details: string;
 }
 
-const users = [
-  { id: 'u1', name: 'Sarah Johnson' },
-  { id: 'u2', name: 'Michael Chen' },
-  { id: 'u3', name: 'Emily Rodriguez' },
-  { id: 'u4', name: 'David Park' },
-  { id: 'u5', name: 'Jessica Williams' },
-  { id: 'u6', name: 'Robert Martinez' },
-  { id: 'u7', name: 'Amanda Thompson' },
-  { id: 'u8', name: 'Kevin Ramos' },
-];
+const attendanceRecords = timekeepingRecords.map((record) => ({
+  userId: record.userId,
+  userName: record.employeeName,
+  date: record.date,
+  timedIn: record.actualTimeIn !== '-',
+  totalHours: record.workedDuration === '-'
+    ? 0
+    : (() => {
+        const match = record.workedDuration.match(/^(\d+)h\s+(\d+)m$/);
+        if (!match) return 0;
+        const hours = Number(match[1]) || 0;
+        const minutes = Number(match[2]) || 0;
+        return Number((hours + minutes / 60).toFixed(1));
+      })(),
+  lateMinutes: record.lateMinutes,
+  locationViolation: record.timeOutLocation === 'outside',
+}));
 
-const formatDate = (date: Date) => {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const generateActivityDates = (startDateStr: string, endDate: Date) => {
-  const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
-  const cursor = new Date(startYear, startMonth - 1, startDay);
-  const dates: string[] = [];
-
-  while (cursor <= endDate) {
-    const dayOfWeek = cursor.getDay();
-    // Skip Saturday (6) and Sunday (0) to keep timekeeping data workday-only.
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      dates.push(formatDate(cursor));
-    }
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return dates;
-};
-
-const today = new Date();
-const activityDates = generateActivityDates('2026-01-30', today);
-
-const attendanceRecords: AttendanceRecord[] = activityDates.flatMap((date, dateIndex) =>
-  users.map((user, userIndex) => {
-    const userAbsentPattern = (userIndex === 5 && dateIndex % 4 === 0) || (userIndex === 2 && dateIndex % 7 === 0);
-    const timedIn = !userAbsentPattern;
-    const lateSeed = ((dateIndex + 2) * (userIndex + 3)) % 31;
-    const lateMinutes = timedIn && lateSeed >= 16 ? lateSeed - 9 : 0;
-    const totalHours = timedIn ? Number((6.8 + ((dateIndex + userIndex) % 4) * 0.5).toFixed(1)) : 0;
-    const locationViolation = timedIn && (dateIndex + userIndex) % 10 === 0;
-
-    return {
-      userId: user.id,
-      userName: user.name,
-      date,
-      timedIn,
-      totalHours,
-      lateMinutes,
-      locationViolation,
-    };
-  })
-);
+const users = [...new Map(attendanceRecords.map((record) => [record.userId, { id: record.userId, name: record.userName }])).values()];
 
 const toHoursLabel = (hours: number) => `${hours.toFixed(1)}h`;
 
@@ -151,7 +103,10 @@ export function OverviewPage() {
   const [isBreakdownLoading, setIsBreakdownLoading] = useState(false);
   const [timeFilter, setTimeFilter] = useState<TimeFilterOption>('today');
 
-  const latestRecordDate = useMemo(() => formatDate(new Date()), []);
+  const latestRecordDate = useMemo(
+    () => attendanceRecords.reduce((latest, current) => (current.date > latest ? current.date : latest), attendanceRecords[0]?.date ?? ''),
+    []
+  );
 
   const defaultCustomRange = useMemo(() => getPresetRange('this-week', latestRecordDate), [latestRecordDate]);
   const [customStartDate, setCustomStartDate] = useState(defaultCustomRange.start);
@@ -296,8 +251,7 @@ export function OverviewPage() {
     });
 
     return rows
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, 12);
+      .sort((a, b) => b.date.localeCompare(a.date));
   }, [filteredRecords]);
 
   const exceptionsPagination = useTablePagination(attendanceExceptionRows, 10);

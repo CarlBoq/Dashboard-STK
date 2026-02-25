@@ -3,8 +3,8 @@ import path from 'path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(() => ({
-  base: '/Dashboard-STK/',
+export default defineConfig(({ mode }) => ({
+  base: mode === 'production' ? '/Dashboard-STK/' : '/',
   esbuild: {
     jsxInject: `import React from "react"`,
   },

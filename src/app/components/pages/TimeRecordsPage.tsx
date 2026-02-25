@@ -16,6 +16,7 @@ import {
 import { TablePaginationControls } from '../TablePaginationControls';
 import { useTablePagination } from '../hooks/useTablePagination';
 import { buildGoogleMapsUrl, getLatestTimeOutEntry } from '../../utils/timekeeping';
+import { timekeepingRecords } from '../../data/timekeepingData';
 
 interface TimeRecord {
   id: string;
@@ -57,156 +58,14 @@ const ALLOWED_SITE = {
   radiusMeters: 250,
 };
 
-const mockData: TimeRecord[] = [
-  {
-    id: '1',
-    employeeName: 'Sarah Johnson',
-    date: '2026-02-12',
-    scheduledStart: '09:00 AM',
-    scheduledEnd: '05:00 PM',
-    breakMinutes: 60,
-    scheduledHours: '7h 00m',
-    actualTimeIn: '08:55 AM',
-    timeInLocation: 'compliant',
-    timeInDistance: 45,
-    timeInEntries: [
-      { timestamp: '2026-02-12T08:55:00', lat: 14.6048, lng: 120.9884, address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
-    ],
-    breakIn: '12:00 PM',
-    breakOut: '01:00 PM',
-    actualTimeOut: '05:03 PM',
-    timeOutLocation: 'compliant',
-    timeOutDistance: 52,
-    timeOutEntries: [
-      { timestamp: '2026-02-12T16:55:00', address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
-      { timestamp: '2026-02-12T17:03:00', lat: 14.6048, lng: 120.9884, address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
-    ],
-    workedDuration: '7h 08m',
-    lateMinutes: 0,
-    status: 'on-time',
-  },
-  {
-    id: '2',
-    employeeName: 'Michael Chen',
-    date: '2026-02-12',
-    scheduledStart: '08:00 AM',
-    scheduledEnd: '04:00 PM',
-    breakMinutes: 30,
-    scheduledHours: '7h 30m',
-    actualTimeIn: '08:15 AM',
-    timeInLocation: 'compliant',
-    timeInDistance: 120,
-    timeInEntries: [
-      { timestamp: '2026-02-12T08:15:00', address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
-    ],
-    breakIn: '11:30 AM',
-    breakOut: '12:00 PM',
-    actualTimeOut: '04:10 PM',
-    timeOutLocation: 'compliant',
-    timeOutDistance: 115,
-    timeOutEntries: [
-      { timestamp: '2026-02-12T16:10:00', lat: 14.6048, lng: 120.9884, address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
-    ],
-    workedDuration: '7h 25m',
-    lateMinutes: 15,
-    status: 'late',
-  },
-  {
-    id: '3',
-    employeeName: 'Emily Rodriguez',
-    date: '2026-02-12',
-    scheduledStart: '10:00 AM',
-    scheduledEnd: '06:00 PM',
-    breakMinutes: 60,
-    scheduledHours: '7h 00m',
-    actualTimeIn: '10:35 AM',
-    timeInLocation: 'outside',
-    timeInDistance: 580,
-    timeInEntries: [
-      { timestamp: '2026-02-12T10:35:00', lat: 14.5825, lng: 120.9798, address: 'Rizal Park, Ermita, Manila, 1000 Metro Manila' },
-    ],
-    breakIn: '01:00 PM',
-    breakOut: '02:00 PM',
-    actualTimeOut: '06:15 PM',
-    timeOutLocation: 'outside',
-    timeOutDistance: 595,
-    timeOutEntries: [
-      { timestamp: '2026-02-12T18:15:00', address: 'Rizal Park, Ermita, Manila, 1000 Metro Manila' },
-    ],
-    workedDuration: '6h 40m',
-    lateMinutes: 35,
-    status: 'late',
-  },
-  {
-    id: '4',
-    employeeName: 'David Park',
-    date: '2026-02-12',
-    scheduledStart: '07:00 AM',
-    scheduledEnd: '03:00 PM',
-    breakMinutes: 30,
-    scheduledHours: '7h 30m',
-    actualTimeIn: '06:58 AM',
-    timeInLocation: 'compliant',
-    timeInDistance: 85,
-    timeInEntries: [
-      { timestamp: '2026-02-12T06:58:00', address: 'Unit 503, 5th Floor, FERN Building I, 827 P. Paredes Street, Sampaloc, Barangay 468' },
-    ],
-    breakIn: '-',
-    breakOut: '-',
-    actualTimeOut: '-',
-    timeOutLocation: 'no-data',
-    timeOutEntries: [],
-    workedDuration: '-',
-    lateMinutes: 0,
-    status: 'incomplete',
-  },
-  {
-    id: '5',
-    employeeName: 'Jessica Williams',
-    date: '2026-02-12',
-    scheduledStart: '09:00 AM',
-    scheduledEnd: '05:00 PM',
-    breakMinutes: 60,
-    scheduledHours: '7h 00m',
-    actualTimeIn: '09:00 AM',
-    timeInLocation: 'no-data',
-    timeInEntries: [],
-    breakIn: '12:30 PM',
-    breakOut: '01:30 PM',
-    actualTimeOut: '05:00 PM',
-    timeOutLocation: 'no-data',
-    timeOutEntries: [],
-    workedDuration: '7h 00m',
-    lateMinutes: 0,
-    status: 'on-time',
-  },
-  {
-    id: '6',
-    employeeName: 'Robert Martinez',
-    date: '2026-02-12',
-    scheduledStart: '08:30 AM',
-    scheduledEnd: '04:30 PM',
-    breakMinutes: 30,
-    scheduledHours: '7h 30m',
-    actualTimeIn: '-',
-    timeInLocation: 'no-data',
-    timeInEntries: [],
-    breakIn: '-',
-    breakOut: '-',
-    actualTimeOut: '-',
-    timeOutLocation: 'no-data',
-    timeOutEntries: [],
-    workedDuration: '-',
-    lateMinutes: 0,
-    status: 'absent',
-  },
-];
+const mockData: TimeRecord[] = timekeepingRecords;
 
 export function TimeRecordsPage() {
   const [selectedRecord, setSelectedRecord] = useState<TimeRecord | null>(null);
+  const latestRecordDate = mockData.reduce((latest, current) => (current.date > latest ? current.date : latest), mockData[0]?.date ?? '');
   const [filters, setFilters] = useState({
     store: 'all',
-    date: '2026-02-12',
+    date: latestRecordDate,
     search: '',
     distance: 'all',
   });
