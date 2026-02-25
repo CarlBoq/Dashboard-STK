@@ -3,6 +3,8 @@ import { Users, UserCheck, Clock, UserX, TrendingUp, AlertTriangle } from 'lucid
 import { KPICard } from '../KPICard';
 import { AttendanceChart } from '../AttendanceChart';
 import { LateEmployeesTrendChart } from '../LateEmployeesTrendChart';
+import { TablePaginationControls } from '../TablePaginationControls';
+import { useTablePagination } from '../hooks/useTablePagination';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
@@ -298,6 +300,9 @@ export function OverviewPage() {
       .slice(0, 12);
   }, [filteredRecords]);
 
+  const exceptionsPagination = useTablePagination(attendanceExceptionRows, 10);
+  const paginatedExceptionRows = exceptionsPagination.paginatedItems;
+
   const kpiCards = useMemo<KpiCardConfig[]>(() => {
     const workedHoursRows = userSummaries
       .filter((user) => user.totalHours > 0)
@@ -488,38 +493,50 @@ export function OverviewPage() {
           {attendanceExceptionRows.length === 0 ? (
             <div className="p-6 text-sm text-gray-500">No attendance exceptions found for this range.</div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Issue</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Details</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {attendanceExceptionRows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-sm text-gray-600">{row.date}</TableCell>
-                    <TableCell className="font-medium text-gray-900">{row.userName}</TableCell>
-                    <TableCell className="text-sm text-gray-700">{row.issueType}</TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          row.severity === 'high'
-                            ? 'bg-red-100 text-red-700 hover:bg-red-100'
-                            : 'bg-amber-100 text-amber-700 hover:bg-amber-100'
-                        }
-                      >
-                        {row.severity === 'high' ? 'High' : 'Medium'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600">{row.details}</TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Issue</TableHead>
+                    <TableHead>Severity</TableHead>
+                    <TableHead>Details</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paginatedExceptionRows.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell className="text-sm text-gray-600">{row.date}</TableCell>
+                      <TableCell className="font-medium text-gray-900">{row.userName}</TableCell>
+                      <TableCell className="text-sm text-gray-700">{row.issueType}</TableCell>
+                      <TableCell>
+                        <Badge
+                          className={
+                            row.severity === 'high'
+                              ? 'bg-red-100 text-red-700 hover:bg-red-100'
+                              : 'bg-amber-100 text-amber-700 hover:bg-amber-100'
+                          }
+                        >
+                          {row.severity === 'high' ? 'High' : 'Medium'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">{row.details}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <TablePaginationControls
+                currentPage={exceptionsPagination.currentPage}
+                totalPages={exceptionsPagination.totalPages}
+                pageSize={exceptionsPagination.pageSize}
+                totalItems={exceptionsPagination.totalItems}
+                onPrevious={exceptionsPagination.goToPreviousPage}
+                onNext={exceptionsPagination.goToNextPage}
+                onPageChange={exceptionsPagination.goToPage}
+                onPageSizeChange={exceptionsPagination.setPageSize}
+              />
+            </>
           )}
         </div>
       </div>
