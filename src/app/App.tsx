@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
+import { AdminActionsPanel } from "./components/AdminActionsPanel";
 import { AdminEditInfoModal } from "./components/AdminEditInfoModal";
 import { OverviewPage } from "./components/pages/OverviewPage";
 import { TimeRecordsPage } from "./components/pages/TimeRecordsPage";
@@ -14,7 +15,6 @@ import { GeneratedBreaklistPage } from "./components/pages/GeneratedBreaklistPag
 import { EditBreaklistPage } from "./components/pages/EditBreaklistPage";
 
 const PRODUCT_NAME = "Sparkle Timekeeping Admin Dashboard";
-
 const pagePaths: Record<string, string> = {
   overview: "/dashboard/overview",
   "time-records": "/time-records",
@@ -73,11 +73,31 @@ interface BreadcrumbItem {
 }
 
 export default function App() {
+  const SIDEBAR_EXPANDED_BREAKPOINT = 1280;
   const [activePage, setActivePage] = useState(
     () => pathToPage(window.location.pathname) ?? "overview",
   );
   const [isEditInfoModalOpen, setIsEditInfoModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isActionsPanelOpen, setIsActionsPanelOpen] = useState(false);
+  const [isCollapsedSidebarLayout, setIsCollapsedSidebarLayout] = useState(
+    () => window.innerWidth < SIDEBAR_EXPANDED_BREAKPOINT,
+  );
+
+  useEffect(() => {
+    const onResize = () => {
+      const nextIsCollapsedLayout = window.innerWidth < SIDEBAR_EXPANDED_BREAKPOINT;
+      setIsCollapsedSidebarLayout((prev) => {
+        if (prev !== nextIsCollapsedLayout && nextIsCollapsedLayout) {
+          setIsSidebarOpen(false);
+        }
+        return nextIsCollapsedLayout;
+      });
+    };
+
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     const syncFromPath = () => {
@@ -259,12 +279,12 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {isSidebarOpen && (
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      {isSidebarOpen && isCollapsedSidebarLayout && (
         <button
           type="button"
           aria-label="Close sidebar"
-          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          className="fixed inset-0 bg-black/40 z-30 xl:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -275,17 +295,24 @@ export default function App() {
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      <div className="md:ml-64">
-        <Header
-          title={pageInfo.title}
-          breadcrumbs={pageInfo.breadcrumbs}
-          onBreadcrumbClick={handlePageChange}
-          onOpenEditInfo={() => setIsEditInfoModalOpen(true)}
-          onOpenSidebar={() => setIsSidebarOpen(true)}
-        />
+      <div className="xl:ml-64">
+        <div className="fixed top-0 left-0 right-0 xl:left-64 z-30">
+          <Header
+            title={pageInfo.title}
+            breadcrumbs={pageInfo.breadcrumbs}
+            onBreadcrumbClick={handlePageChange}
+            onOpenEditInfo={() => setIsEditInfoModalOpen(true)}
+            onOpenSidebar={() => setIsSidebarOpen(true)}
+            onOpenActionsPanel={() => setIsActionsPanelOpen(true)}
+          />
+        </div>
 
-        <main className="p-4 md:p-8">{getPageContent()}</main>
+        <main className="p-4 pt-24 md:p-8 md:pt-28 w-full max-w-full overflow-x-hidden">{getPageContent()}</main>
       </div>
+      <AdminActionsPanel
+        open={isActionsPanelOpen}
+        onClose={() => setIsActionsPanelOpen(false)}
+      />
       <AdminEditInfoModal
         open={isEditInfoModalOpen}
         onClose={() => setIsEditInfoModalOpen(false)}

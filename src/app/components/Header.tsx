@@ -12,13 +12,21 @@ interface HeaderProps {
   onBreadcrumbClick: (page: string) => void;
   onOpenEditInfo: () => void;
   onOpenSidebar: () => void;
+  onOpenActionsPanel: () => void;
 }
 
-export function Header({ title, breadcrumbs = [], onBreadcrumbClick, onOpenEditInfo, onOpenSidebar }: HeaderProps) {
+export function Header({
+  title,
+  breadcrumbs = [],
+  onBreadcrumbClick,
+  onOpenEditInfo,
+  onOpenSidebar,
+  onOpenActionsPanel,
+}: HeaderProps) {
   return (
     <div className="px-4 md:px-8 py-4 border-b bg-white border-gray-200">
       <div className="flex items-center justify-between">
-        <div>
+        <div className="min-w-0">
           {breadcrumbs.length > 0 && (
             <div className="hidden md:flex items-center gap-2 text-sm mb-1 text-gray-500">
               {breadcrumbs.map((crumb, index) => (
@@ -45,12 +53,12 @@ export function Header({ title, breadcrumbs = [], onBreadcrumbClick, onOpenEditI
             <button
               type="button"
               onClick={onOpenSidebar}
-              className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="xl:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
               aria-label="Open navigation menu"
             >
               <Menu className="w-5 h-5 text-gray-700" />
             </button>
-            <h1 className="text-xl md:text-2xl font-semibold text-gray-900">{title}</h1>
+            <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 truncate">{title}</h1>
           </div>
         </div>
         
@@ -78,6 +86,14 @@ export function Header({ title, breadcrumbs = [], onBreadcrumbClick, onOpenEditI
             className="hidden sm:inline-flex px-3 py-2 text-sm border rounded-lg transition-colors border-gray-300 text-gray-700 hover:bg-gray-100"
           >
             What can I edit?
+          </button>
+          <button
+            type="button"
+            onClick={onOpenActionsPanel}
+            className="p-2 rounded-lg transition-colors hover:bg-gray-100"
+            aria-label="Open quick actions panel"
+          >
+            <Menu className="w-5 h-5 text-gray-700" />
           </button>
         </div>
       </div>

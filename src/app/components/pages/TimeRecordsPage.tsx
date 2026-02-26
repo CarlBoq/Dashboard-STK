@@ -269,7 +269,7 @@ export function TimeRecordsPage() {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Store Location</h3>
             <div className="space-y-1 text-sm">
@@ -284,7 +284,7 @@ export function TimeRecordsPage() {
               </p>
             </div>
           </div>
-          <Button onClick={handleViewOnMap} className="bg-[#1F4FD8] hover:bg-[#1845b8]">
+          <Button onClick={handleViewOnMap} className="bg-[#1F4FD8] hover:bg-[#1845b8] w-full md:w-auto">
             <Map className="w-4 h-4 mr-2" />
             View on Map
           </Button>

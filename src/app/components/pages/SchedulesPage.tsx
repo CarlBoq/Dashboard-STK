@@ -474,7 +474,7 @@ export function SchedulesPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
         <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
           <section className="space-y-4">
-            <div className="rounded-lg border border-[#b9ddff] px-4 py-3 flex items-center justify-between">
+            <div className="rounded-lg border border-[#b9ddff] px-4 py-3 flex items-center justify-between gap-2">
               <select
                 value={formState.personnel}
                 onChange={(event) => upsertFormValue('personnel', event.target.value)}
@@ -539,11 +539,11 @@ export function SchedulesPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 gap-2">
                 <Button size="icon" variant="outline" onClick={() => goMonth(-1)}>
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <div className="flex items-center gap-4 text-gray-800">
+                <div className="flex items-center gap-3 text-gray-800">
                   <button type="button" className="flex items-center gap-1 text-base font-medium">
                     {MONTH_NAMES[viewMonth]}
                     <ChevronDown className="w-4 h-4 text-gray-500" />

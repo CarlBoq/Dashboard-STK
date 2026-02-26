@@ -1,16 +1,27 @@
-
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Sparkle Timekeeping Admin Dashboard</title>
-      <script type="module" crossorigin src="/Dashboard-STK/assets/index-C52bMGhp.js"></script>
-      <link rel="stylesheet" crossorigin href="/Dashboard-STK/assets/index-DeIEO1Ow.css">
-    </head>
-
-    <body>
-      <div id="root"></div>
-    </body>
-  </html>
-  
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>Sparkle Timekeeping Admin Dashboard</title>
+    <script>
+      (function (location) {
+        if (location.search[1] !== "/") return;
+        const decoded = location.search
+          .slice(1)
+          .split("&")
+          .map(function (segment) {
+            return segment.replace(/~and~/g, "&");
+          })
+          .join("?");
+        window.history.replaceState(null, "", location.pathname.replace(/\/$/, "") + decoded + location.hash);
+      })(window.location);
+    </script>
+    <script type="module" crossorigin src="/Dashboard-STK/assets/index-B_8jlw0C.js"></script>
+    <link rel="stylesheet" crossorigin href="/Dashboard-STK/assets/index-B8eNDXGj.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

@@ -124,7 +124,7 @@ export function Sidebar({ activePage, onPageChange, isOpen, onClose }: SidebarPr
     <aside
       className={`w-64 h-screen fixed left-0 top-0 z-40 flex flex-col overflow-y-auto bg-[#1a1f36] transform transition-transform duration-200 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
-      } md:translate-x-0`}
+      } xl:translate-x-0`}
     >
       <div className="p-6 border-b border-gray-700">
         <div className="flex items-center gap-3">
@@ -155,8 +155,9 @@ export function Sidebar({ activePage, onPageChange, isOpen, onClose }: SidebarPr
       </div>
       <button
         type="button"
-        className="md:hidden m-4 mt-0 py-2 px-3 border border-gray-600 rounded-lg text-gray-200 hover:bg-gray-800"
+        className="xl:hidden m-4 mt-0 py-2 px-3 border border-gray-600 rounded-lg text-gray-200 hover:bg-gray-800"
         onClick={onClose}
+        aria-label="Close menu panel"
       >
         Close Menu
       </button>
