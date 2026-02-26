@@ -44,7 +44,7 @@ export function KPICard({ title, value, icon: Icon, trend, color, onBreakdownCli
           )}
         </div>
         <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
-          <Icon className="w-6 h-6" />
+          <Icon className="w-6 h-6 stroke-[2.25]" />
         </div>
       </div>
     </div>

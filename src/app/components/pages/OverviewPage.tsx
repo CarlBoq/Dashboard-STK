@@ -1,5 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Users, UserCheck, Clock, UserX, TrendingUp, AlertTriangle } from 'lucide-react';
+import {
+  UsersRound,
+  UserRoundCheck,
+  Clock,
+  UserRoundX,
+  TrendingUp,
+  AlertTriangle,
+  type LucideIcon,
+} from 'lucide-react';
 import { KPICard } from '../KPICard';
 import { AttendanceChart } from '../AttendanceChart';
 import { LateEmployeesTrendChart } from '../LateEmployeesTrendChart';
@@ -50,7 +58,7 @@ interface KpiCardConfig {
   id: string;
   title: string;
   value: number;
-  icon: typeof Users;
+  icon: LucideIcon;
   color: 'blue' | 'green' | 'yellow' | 'red' | 'purple';
   trend?: {
     value: string;
@@ -310,7 +318,7 @@ export function OverviewPage() {
         id: 'worked-hours',
         title: 'Total Worked Hours',
         value: Number(sumBreakdownValues(workedHoursRows).toFixed(1)),
-        icon: Users,
+        icon: UsersRound,
         color: 'blue',
         breakdownRows: workedHoursRows,
       },
@@ -318,7 +326,7 @@ export function OverviewPage() {
         id: 'timed-in',
         title: 'Users Who Timed In',
         value: timedInTotal,
-        icon: UserCheck,
+        icon: UserRoundCheck,
         color: 'green',
         trend: {
           value: `${(((timedInTotal / Math.max(timedInTotal + notTimedInTotal, 1)) * 100).toFixed(1))}%`,
@@ -330,7 +338,7 @@ export function OverviewPage() {
         id: 'not-timed-in',
         title: 'Users Not Timed In',
         value: notTimedInTotal,
-        icon: UserX,
+        icon: UserRoundX,
         color: 'red',
         breakdownRows: notTimedInRows,
       },
@@ -496,7 +504,7 @@ export function OverviewPage() {
       </div>
 
       <Dialog open={Boolean(selectedKpi)} onOpenChange={(open) => !open && setSelectedKpiId(null)}>
-        <DialogContent className="w-[96vw] max-w-[900px] max-h-[90vh] overflow-hidden p-0">
+        <DialogContent className="w-[96vw] max-w-[980px] sm:max-w-[980px] max-h-[90vh] overflow-hidden p-0">
           <DialogHeader>
             <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white px-6 py-5">
               <DialogTitle className="text-xl text-gray-900">{selectedKpi?.title} Breakdown</DialogTitle>
