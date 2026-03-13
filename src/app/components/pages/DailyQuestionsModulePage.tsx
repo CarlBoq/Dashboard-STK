@@ -341,9 +341,11 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
     const isTrueFalse = questionForm.answerType === "true-false";
     const isAnswerTextType =
       questionForm.answerType === "short-answer" || questionForm.answerType === "long-answer";
+    const trimmedQuestion = questionForm.question.trim();
+    const trimmedCategory = questionForm.category.trim();
     if (
-      !questionForm.question.trim() ||
-      !questionForm.category.trim() ||
+      !trimmedQuestion ||
+      !trimmedCategory ||
       (!isAnswerTextType && !questionForm.choiceA.trim()) ||
       (!isAnswerTextType && !questionForm.choiceB.trim()) ||
       (questionForm.answerType === "multiple-choice" && !questionForm.choiceC.trim()) ||
@@ -358,10 +360,23 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
         ? "A"
         : questionForm.correctAnswer;
 
+    const normalizedQuestion = trimmedQuestion.toLowerCase();
+    const duplicateQuestionExists = questions.some(
+      (question) => question.question.trim().toLowerCase() === normalizedQuestion && question.id !== editingQuestionId,
+    );
+    if (duplicateQuestionExists) {
+      setCreationNotice({
+        type: "question",
+        title: "Duplicate Question",
+        message: "A question with the same name already exists. Use a different question name.",
+      });
+      return;
+    }
+
     const payload: DailyQuestionItem = {
       id: editingQuestionId ?? `dq-${Date.now()}`,
-      question: questionForm.question.trim(),
-      category: questionForm.category,
+      question: trimmedQuestion,
+      category: trimmedCategory,
       status: questionForm.status,
       answerType: questionForm.answerType,
       hasCorrectAnswer: questionForm.hasCorrectAnswer,
@@ -532,7 +547,14 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
     const nameExists = categories.some(
       (category) => category.name.toLowerCase() === normalized && category.id !== editingCategoryId,
     );
-    if (nameExists) return;
+    if (nameExists) {
+      setCreationNotice({
+        type: "category",
+        title: "Duplicate Category",
+        message: "A category with the same name already exists. Use a different category name.",
+      });
+      return;
+    }
 
     if (editingCategoryId) {
       const previousCategoryName =
@@ -1696,7 +1718,7 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
       </Dialog>
 
       <Dialog open={isRulePreviewOpen} onOpenChange={setIsRulePreviewOpen}>
-        <DialogContent className="w-[96vw] max-w-[780px]">
+        <DialogContent className="flex max-h-[90vh] w-[96vw] max-w-[780px] flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Rule-Based Question Session Preview</DialogTitle>
             <DialogDescription>
@@ -1704,16 +1726,35 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
             </DialogDescription>
           </DialogHeader>
 
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           {rulePreviewView === "questions" && rulePreviewQuestions.length > 0 ? (
-            <div className="space-y-6 rounded-lg border border-[#2daee8] p-5 bg-[#f7f7f7]">
-              <h3 className="text-2xl font-semibold text-gray-900">Daily Questionnaire</h3>
+            <div className="space-y-6 rounded-xl border border-[#2daee8] bg-slate-50 p-5">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1F4FD8]">
+                  Employee Timeout Preview
+                </p>
+                <h3 className="text-2xl font-semibold text-gray-900">Daily Questionnaire</h3>
+              </div>
               {rulePreviewQuestions.map((question, index) => (
-                <div key={`question-preview-list-${question.id}`} className="space-y-3">
-                  <p className="text-xl text-gray-900 leading-tight">
-                    {index + 1}. {question.question}
-                  </p>
+                <div
+                  key={`question-preview-list-${question.id}`}
+                  className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1F4FD8] text-sm font-semibold text-white">
+                      {index + 1}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-base font-semibold leading-6 text-gray-900">{question.question}</p>
+                      <p className="text-xs uppercase tracking-[0.18em] text-gray-500">
+                        {question.answerType === "true-false"
+                          ? "True or False"
+                          : question.answerType.replace("-", " ")}
+                      </p>
+                    </div>
+                  </div>
                   {(question.answerType === "multiple-choice" || question.answerType === "true-false") && (
-                    <div className="space-y-3">
+                    <div className="grid gap-3">
                       {[
                         { key: "A", label: question.choices?.a ?? "" },
                         { key: "B", label: question.choices?.b ?? "" },
@@ -1735,13 +1776,22 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
                                 [question.id]: option.key,
                               }))
                             }
-                            className={`w-full rounded-full border px-4 py-3 text-center text-lg transition-colors ${
+                            className={`w-full rounded-2xl border px-4 py-3 text-left transition-colors ${
                               selected
-                                ? "border-[#27aae1] ring-2 ring-[#27aae1]/30 bg-white"
-                                : "border-gray-300 bg-[#efefef] hover:bg-gray-100"
+                                ? "border-[#27aae1] bg-sky-50 ring-2 ring-[#27aae1]/20"
+                                : "border-gray-200 bg-white hover:border-sky-200 hover:bg-slate-50"
                             }`}
                           >
-                            {option.label}
+                            <div className="flex items-center gap-3">
+                              <span
+                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                                  selected ? "bg-[#27aae1] text-white" : "bg-gray-100 text-gray-700"
+                                }`}
+                              >
+                                {option.key}
+                              </span>
+                              <span className="text-sm font-medium text-gray-900">{option.label}</span>
+                            </div>
                           </button>
                         );
                       })}
@@ -1757,7 +1807,7 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
                         }))
                       }
                       placeholder="Type your answer"
-                      className="rounded-full bg-[#efefef] border-gray-300 h-12 text-base"
+                      className="h-12 rounded-2xl border-gray-300 bg-white text-base"
                     />
                   )}
                   {question.answerType === "long-answer" && (
@@ -1770,7 +1820,7 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
                         }))
                       }
                       placeholder="Type your answer"
-                      className="rounded-2xl bg-[#efefef] border-gray-300 min-h-24 text-base"
+                      className="min-h-24 rounded-2xl border-gray-300 bg-white text-base"
                     />
                   )}
                 </div>
@@ -1781,19 +1831,25 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
           ) : null}
 
           {rulePreviewView === "summary" && (
-            <div className="space-y-6 rounded-lg border border-[#2daee8] p-5 bg-[#f7f7f7]">
+            <div className="space-y-6 rounded-xl border border-[#2daee8] bg-slate-50 p-5">
               <h3 className="text-2xl font-semibold text-gray-900">Daily Questionnaire</h3>
               {rulePreviewSummaryRows.map((row, index) => {
                 const sourceQuestion = rulePreviewQuestions.find((question) => question.id === row.questionId);
                 const sourceType = sourceQuestion?.answerType ?? "short-answer";
                 const sourceChoices = sourceQuestion?.choices;
                 return (
-                  <div key={`summary-${row.questionId}`} className="space-y-3">
-                    <p className="text-xl text-gray-900 leading-tight">
-                      {index + 1}. {row.question}
-                    </p>
+                  <div
+                    key={`summary-${row.questionId}`}
+                    className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-900 text-sm font-semibold text-white">
+                        {index + 1}
+                      </div>
+                      <p className="pt-1 text-base font-semibold leading-6 text-gray-900">{row.question}</p>
+                    </div>
                     {(sourceType === "multiple-choice" || sourceType === "true-false") && (
-                      <div className="space-y-3">
+                      <div className="grid gap-3">
                         {[
                           { key: "A", label: sourceChoices?.a ?? "" },
                           { key: "B", label: sourceChoices?.b ?? "" },
@@ -1811,26 +1867,27 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
                           return (
                             <div key={`summary-option-${row.questionId}-${option.key}`}>
                               <div
-                                className={`w-full rounded-full border px-4 py-3 text-center text-lg ${
+                                className={`w-full rounded-2xl border px-4 py-3 ${
                                   isCorrectOption
-                                    ? "border-green-500 bg-[#8cf970]"
+                                    ? "border-green-500 bg-green-50"
                                     : isWrongSelection
-                                      ? "border-red-500 bg-[#ff7b7b]"
+                                      ? "border-red-500 bg-red-50"
                                       : isNeutralSelection
                                         ? "border-blue-400 bg-blue-50"
-                                        : "border-gray-300 bg-[#efefef]"
+                                        : "border-gray-200 bg-white"
                                 }`}
                               >
-                                {option.label}
+                                <div className="flex items-center gap-3">
+                                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700">
+                                    {option.key}
+                                  </span>
+                                  <span className="text-sm font-medium text-gray-900">{option.label}</span>
+                                </div>
                               </div>
-                              {isCorrectOption && (
-                                <p className="mt-1 text-center text-sm text-green-700">Correct Answer</p>
-                              )}
-                              {isWrongSelection && (
-                                <p className="mt-1 text-center text-sm text-red-700">Your Answer is Wrong!</p>
-                              )}
+                              {isCorrectOption && <p className="mt-1 text-sm text-green-700">Correct answer</p>}
+                              {isWrongSelection && <p className="mt-1 text-sm text-red-700">Your answer was wrong</p>}
                               {isSelected && row.isCorrect === true && (
-                                <p className="mt-1 text-center text-sm text-green-700">Your Answer is Correct!</p>
+                                <p className="mt-1 text-sm text-green-700">Your answer was correct</p>
                               )}
                             </div>
                           );
@@ -1842,10 +1899,10 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
                         <div
                           className={`rounded-2xl border px-4 py-3 text-base ${
                             row.isCorrect === true
-                              ? "border-green-500 bg-[#8cf970]"
+                              ? "border-green-500 bg-green-50"
                               : row.isCorrect === false
-                                ? "border-red-500 bg-[#ff7b7b]"
-                                : "border-gray-300 bg-[#efefef]"
+                                ? "border-red-500 bg-red-50"
+                                : "border-gray-200 bg-white"
                           }`}
                         >
                           {row.submittedAnswer || "(No answer)"}
@@ -1889,6 +1946,7 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
               </div>
             </div>
           )}
+          </div>
 
           <DialogFooter>
             <Button
@@ -1939,7 +1997,7 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
       </Dialog>
 
       <Dialog open={Boolean(previewQuestion)} onOpenChange={(open) => !open && setPreviewQuestion(null)}>
-        <DialogContent className="w-[96vw] max-w-[720px]">
+        <DialogContent className="flex max-h-[90vh] w-[96vw] max-w-[720px] flex-col overflow-hidden">
           {previewQuestion && (
             <>
               <DialogHeader>
@@ -1949,8 +2007,8 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4">
-                <div className="rounded-lg border border-gray-200 p-4 bg-gray-50">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                   <p className="text-xs text-gray-500 mb-2">
                     {previewQuestion.category} - {previewQuestion.answerType}
                   </p>
@@ -1959,7 +2017,7 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
 
                 {(previewQuestion.answerType === "multiple-choice" ||
                   previewQuestion.answerType === "true-false") && (
-                  <div className="space-y-2">
+                  <div className="grid gap-3">
                     {[
                       { key: "A", label: previewQuestion.choices?.a ?? "" },
                       { key: "B", label: previewQuestion.choices?.b ?? "" },
@@ -1973,7 +2031,7 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
                       <button
                         key={option.key}
                         type="button"
-                        className={`w-full text-left rounded-lg border px-3 py-2 text-sm transition-colors ${
+                        className={`w-full rounded-2xl border px-4 py-3 text-left text-sm transition-colors ${
                           previewQuestion.hasCorrectAnswer &&
                           previewResult &&
                           option.key === previewQuestion.correctAnswer
@@ -1991,8 +2049,12 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
                           setPreviewResult(null);
                         }}
                       >
-                        <span className="font-semibold mr-2">{option.key}.</span>
-                        {option.label}
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 font-semibold text-gray-700">
+                            {option.key}
+                          </span>
+                          <span className="font-medium">{option.label}</span>
+                        </div>
                       </button>
                     ))}
                   </div>
