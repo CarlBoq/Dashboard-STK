@@ -9,6 +9,12 @@ import {
   Coffee,
   List,
   FileEdit,
+  MessageSquareText,
+  BookText,
+  Tags,
+  ShieldCheck,
+  ClipboardCheck,
+  BarChart3,
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
@@ -29,7 +35,7 @@ interface MenuItem {
 }
 
 export function Sidebar({ activePage, onPageChange, isOpen, onClose }: SidebarProps) {
-  const [expandedSections, setExpandedSections] = useState<string[]>(['dashboard', 'user-management', 'time-management']);
+  const [expandedSections, setExpandedSections] = useState<string[]>(['dashboard', 'user-management', 'time-management', 'daily-questions']);
 
   const menuItems: MenuItem[] = [
     {
@@ -41,6 +47,18 @@ export function Sidebar({ activePage, onPageChange, isOpen, onClose }: SidebarPr
         { id: 'time-records', label: 'Time Records', icon: Clock },
         { id: 'activity-logs', label: 'Activity Logs', icon: FileText },
       ],
+    },
+    {
+      id: 'daily-questions',
+      label: 'Daily Questions',
+      icon: MessageSquareText,
+      children: [
+        { id: 'daily-questions-question-bank', label: 'Question Bank', icon: BookText },
+        { id: 'daily-questions-categories', label: 'Categories', icon: Tags },
+        { id: 'daily-questions-rules', label: 'Question Rules', icon: ShieldCheck },
+        { id: 'daily-questions-responses', label: 'Employee Responses', icon: ClipboardCheck },
+        { id: 'daily-questions-reports', label: 'Reports & Analytics', icon: BarChart3 },
+      ]
     },
     { 
       id: 'user-management', 

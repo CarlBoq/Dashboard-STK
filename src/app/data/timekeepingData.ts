@@ -354,7 +354,7 @@ export const activityLogs: ActivityLogEntry[] = timekeepingRecords
     if (record.status === 'incomplete') {
       userLogs.push({
         id: `${record.id}-incomplete`,
-        timestamp: `${record.date} 18:00:00`,
+        timestamp: `${record.date} 18:00:00`, 
         user: 'System',
         role: 'System',
         affectedEmployee: record.employeeName,

@@ -13,6 +13,7 @@ import { SchedulesPage } from "./components/pages/SchedulesPage";
 import { BreaklistSummaryPage } from "./components/pages/BreaklistSummaryPage";
 import { GeneratedBreaklistPage } from "./components/pages/GeneratedBreaklistPage";
 import { EditBreaklistPage } from "./components/pages/EditBreaklistPage";
+import { DailyQuestionsModulePage } from "./components/pages/DailyQuestionsModulePage";
 
 const PRODUCT_NAME = "Sparkle Timekeeping Admin Dashboard";
 const pagePaths: Record<string, string> = {
@@ -26,6 +27,11 @@ const pagePaths: Record<string, string> = {
   "breaklist-summary": "/breaklist-summary",
   "generated-breaklist": "/generated-breaklist",
   "edit-breaklist": "/edit-breaklist",
+  "daily-questions-question-bank": "/daily-questions/question-bank",
+  "daily-questions-categories": "/daily-questions/categories",
+  "daily-questions-rules": "/daily-questions/question-rules",
+  "daily-questions-responses": "/daily-questions/employee-responses",
+  "daily-questions-reports": "/daily-questions/reports-analytics",
 };
 
 const basePath = (() => {
@@ -59,6 +65,9 @@ const pathToPage = (pathname: string): string | null => {
 
   if (normalized === "/dashboard") {
     return "overview";
+  }
+  if (normalized === "/daily-questions") {
+    return "daily-questions-question-bank";
   }
 
   const pageEntry = Object.entries(pagePaths).find(
@@ -124,6 +133,11 @@ export default function App() {
     }
   }, [activePage]);
 
+  const handlePageChange = (page: string) => {
+    setActivePage(page);
+    setIsSidebarOpen(false);
+  };
+
   const getPageContent = () => {
     switch (activePage) {
       case "overview":
@@ -146,6 +160,41 @@ export default function App() {
         return <GeneratedBreaklistPage />;
       case "edit-breaklist":
         return <EditBreaklistPage />;
+      case "daily-questions-question-bank":
+        return (
+          <DailyQuestionsModulePage
+            section="question-bank"
+            onNavigate={handlePageChange}
+          />
+        );
+      case "daily-questions-categories":
+        return (
+          <DailyQuestionsModulePage
+            section="categories"
+            onNavigate={handlePageChange}
+          />
+        );
+      case "daily-questions-rules":
+        return (
+          <DailyQuestionsModulePage
+            section="question-rules"
+            onNavigate={handlePageChange}
+          />
+        );
+      case "daily-questions-responses":
+        return (
+          <DailyQuestionsModulePage
+            section="employee-responses"
+            onNavigate={handlePageChange}
+          />
+        );
+      case "daily-questions-reports":
+        return (
+          <DailyQuestionsModulePage
+            section="reports-analytics"
+            onNavigate={handlePageChange}
+          />
+        );
       default:
         return <OverviewPage />;
     }
@@ -233,6 +282,46 @@ export default function App() {
           { label: "Edit Breaklist" },
         ],
       },
+      "daily-questions-question-bank": {
+        title: PRODUCT_NAME,
+        breadcrumbs: [
+          { label: "Dashboard", page: "overview" },
+          { label: "Daily Questions", page: "daily-questions-question-bank" },
+          { label: "Question Bank" },
+        ],
+      },
+      "daily-questions-categories": {
+        title: PRODUCT_NAME,
+        breadcrumbs: [
+          { label: "Dashboard", page: "overview" },
+          { label: "Daily Questions", page: "daily-questions-question-bank" },
+          { label: "Categories" },
+        ],
+      },
+      "daily-questions-rules": {
+        title: PRODUCT_NAME,
+        breadcrumbs: [
+          { label: "Dashboard", page: "overview" },
+          { label: "Daily Questions", page: "daily-questions-question-bank" },
+          { label: "Question Rules" },
+        ],
+      },
+      "daily-questions-responses": {
+        title: PRODUCT_NAME,
+        breadcrumbs: [
+          { label: "Dashboard", page: "overview" },
+          { label: "Daily Questions", page: "daily-questions-question-bank" },
+          { label: "Employee Responses" },
+        ],
+      },
+      "daily-questions-reports": {
+        title: PRODUCT_NAME,
+        breadcrumbs: [
+          { label: "Dashboard", page: "overview" },
+          { label: "Daily Questions", page: "daily-questions-question-bank" },
+          { label: "Reports & Analytics" },
+        ],
+      },
     };
 
     return (
@@ -267,16 +356,22 @@ export default function App() {
         "Admins can edit break durations and regenerate break schedules.",
       "edit-breaklist":
         "Admins can edit break durations and regenerate break schedules.",
+      "daily-questions-question-bank":
+        "Admins can create and manage randomized daily question banks, answers, and activation status.",
+      "daily-questions-categories":
+        "Admins can manage question categories used for daily timeout question delivery.",
+      "daily-questions-rules":
+        "Admins can configure randomization rules and completion requirements for timeout questions.",
+      "daily-questions-responses":
+        "Admins can review employee answers, completion status, and correctness history.",
+      "daily-questions-reports":
+        "Admins can analyze compliance, participation, and category-level question performance.",
     };
 
     return sectionConfig[activePage] ?? sectionConfig.overview;
   };
 
   const pageInfo = getPageInfo();
-  const handlePageChange = (page: string) => {
-    setActivePage(page);
-    setIsSidebarOpen(false);
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
