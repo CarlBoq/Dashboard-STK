@@ -58,6 +58,8 @@ export interface QuestionMakerLeaderboardEntry {
   totalAttempts: number;
   leaderboardScore: number;
   badge: "Quiz Wizard" | "Questionably Good" | "Chaos Coordinator" | "Answer Whisperer";
+  scoreTrend: "up" | "down" | "steady";
+  scoreTrendLabel: string;
 }
 
 export const dailyQuestionCategoriesSeed: DailyQuestionCategory[] = [];
@@ -246,6 +248,8 @@ export const questionMakerLeaderboardSeed: QuestionMakerLeaderboardEntry[] = [
     totalAttempts: 420,
     leaderboardScore: 274,
     badge: "Quiz Wizard",
+    scoreTrend: "up",
+    scoreTrendLabel: "+12 score",
   },
   {
     id: "qm-002",
@@ -256,6 +260,8 @@ export const questionMakerLeaderboardSeed: QuestionMakerLeaderboardEntry[] = [
     totalAttempts: 390,
     leaderboardScore: 256,
     badge: "Answer Whisperer",
+    scoreTrend: "steady",
+    scoreTrendLabel: "same rank",
   },
   {
     id: "qm-003",
@@ -266,6 +272,8 @@ export const questionMakerLeaderboardSeed: QuestionMakerLeaderboardEntry[] = [
     totalAttempts: 340,
     leaderboardScore: 247,
     badge: "Questionably Good",
+    scoreTrend: "up",
+    scoreTrendLabel: "+8 score",
   },
   {
     id: "qm-004",
@@ -276,6 +284,8 @@ export const questionMakerLeaderboardSeed: QuestionMakerLeaderboardEntry[] = [
     totalAttempts: 410,
     leaderboardScore: 242,
     badge: "Chaos Coordinator",
+    scoreTrend: "down",
+    scoreTrendLabel: "+3 wrong",
   },
   {
     id: "qm-005",
@@ -286,6 +296,8 @@ export const questionMakerLeaderboardSeed: QuestionMakerLeaderboardEntry[] = [
     totalAttempts: 300,
     leaderboardScore: 232,
     badge: "Answer Whisperer",
+    scoreTrend: "steady",
+    scoreTrendLabel: "same rank",
   },
   {
     id: "qm-006",
@@ -296,5 +308,7 @@ export const questionMakerLeaderboardSeed: QuestionMakerLeaderboardEntry[] = [
     totalAttempts: 260,
     leaderboardScore: 220,
     badge: "Questionably Good",
+    scoreTrend: "down",
+    scoreTrendLabel: "+1 wrong",
   },
 ];

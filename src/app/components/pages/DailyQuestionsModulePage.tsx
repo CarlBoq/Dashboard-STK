@@ -1,5 +1,18 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, Edit, Trash2, Save, BarChart3, CheckCircle2, XCircle, Eye } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Save,
+  BarChart3,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+} from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -80,6 +93,24 @@ const leaderboardBadgeClassNames: Record<QuestionMakerLeaderboardEntry["badge"],
   "Questionably Good": "bg-sky-100 text-sky-800 border-sky-200",
   "Chaos Coordinator": "bg-rose-100 text-rose-800 border-rose-200",
   "Answer Whisperer": "bg-emerald-100 text-emerald-800 border-emerald-200",
+};
+
+const leaderboardTrendStyles: Record<
+  QuestionMakerLeaderboardEntry["scoreTrend"],
+  { container: string; icon: typeof ArrowUpRight }
+> = {
+  up: {
+    container: "bg-emerald-50 text-emerald-700",
+    icon: ArrowUpRight,
+  },
+  down: {
+    container: "bg-rose-50 text-rose-700",
+    icon: ArrowDownRight,
+  },
+  steady: {
+    container: "bg-amber-50 text-amber-700",
+    icon: Minus,
+  },
 };
 
 export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestionsModulePageProps) {
@@ -1297,8 +1328,21 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
                       <TableCell className="text-gray-700">{entry.averageCorrectRate}%</TableCell>
                       <TableCell className="text-gray-700">{entry.completionRate}%</TableCell>
                       <TableCell className="text-gray-700">{entry.totalAttempts}</TableCell>
-                      <TableCell className="font-semibold text-[#1F4FD8]">
-                        {entry.leaderboardScore}
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-[#1F4FD8]">{entry.leaderboardScore}</span>
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+                              leaderboardTrendStyles[entry.scoreTrend].container
+                            }`}
+                          >
+                            {(() => {
+                              const TrendIcon = leaderboardTrendStyles[entry.scoreTrend].icon;
+                              return <TrendIcon className="h-3.5 w-3.5" />;
+                            })()}
+                            {entry.scoreTrendLabel}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge
