@@ -1047,22 +1047,6 @@ export function DailyQuestionsModulePage({ section, onNavigate }: DailyQuestions
             <div className="rounded-lg border border-gray-200 p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Allow question repeat</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Allow employees to receive repeated questions.
-                  </p>
-                </div>
-                <Switch
-                  checked={rules.allowQuestionRepeat}
-                  onCheckedChange={(checked) =>
-                    setRules((prev) => ({ ...prev, allowQuestionRepeat: checked }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="rounded-lg border border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <div>
                   <p className="text-sm font-medium text-gray-900">Activation status</p>
                   <p className="text-xs text-gray-500 mt-1">
                     Enable this module in the employee timeout flow.

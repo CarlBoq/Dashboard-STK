@@ -31,7 +31,6 @@ export interface DailyQuestionRules {
   manualQuestionIds: string[];
   randomizationEnabled: boolean;
   requireCompletionBeforeTimeout: boolean;
-  allowQuestionRepeat: boolean;
   isActive: boolean;
 }
 
@@ -75,7 +74,6 @@ export const dailyQuestionRulesSeed: DailyQuestionRules = {
   manualQuestionIds: [],
   randomizationEnabled: true,
   requireCompletionBeforeTimeout: true,
-  allowQuestionRepeat: false,
   isActive: true,
 };
 
