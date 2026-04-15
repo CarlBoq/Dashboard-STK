@@ -36,7 +36,7 @@ interface MenuItem {
 }
 
 export function Sidebar({ activePage, onPageChange, isOpen, onClose }: SidebarProps) {
-  const [expandedSections, setExpandedSections] = useState<string[]>(['dashboard', 'user-management', 'time-management', 'daily-questions']);
+  const [expandedSections, setExpandedSections] = useState<string[]>([]);
 
   const menuItems: MenuItem[] = [
     {
