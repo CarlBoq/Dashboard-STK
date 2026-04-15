@@ -1,8 +1,8 @@
-import { 
-  LayoutDashboard, 
-  Clock, 
-  FileText, 
-  Users, 
+import {
+  LayoutDashboard,
+  Clock,
+  FileText,
+  Users,
   Archive,
   Edit3,
   Calendar,
@@ -16,7 +16,8 @@ import {
   ClipboardCheck,
   BarChart3,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  CalendarDays,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -60,18 +61,18 @@ export function Sidebar({ activePage, onPageChange, isOpen, onClose }: SidebarPr
         { id: 'daily-questions-reports', label: 'Reports & Analytics', icon: BarChart3 },
       ]
     },
-    { 
-      id: 'user-management', 
-      label: 'User Management', 
+    {
+      id: 'user-management',
+      label: 'User Management',
       icon: Users,
       children: [
         { id: 'users', label: 'Users', icon: Users },
         { id: 'archived-users', label: 'Archived Users', icon: Archive },
       ]
     },
-    { 
-      id: 'time-management', 
-      label: 'Time Management', 
+    {
+      id: 'time-management',
+      label: 'Time Management',
       icon: Calendar,
       children: [
         { id: 'schedules', label: 'Schedules', icon: Calendar },
@@ -81,6 +82,7 @@ export function Sidebar({ activePage, onPageChange, isOpen, onClose }: SidebarPr
         { id: 'time-adjustment', label: 'Time Adjustment', icon: Edit3 },
       ]
     },
+    { id: 'leave-requests', label: 'Leave Requests', icon: CalendarDays },
   ];
 
   const toggleSection = (sectionId: string) => {

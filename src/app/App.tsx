@@ -14,6 +14,7 @@ import { BreaklistSummaryPage } from "./components/pages/BreaklistSummaryPage";
 import { GeneratedBreaklistPage } from "./components/pages/GeneratedBreaklistPage";
 import { EditBreaklistPage } from "./components/pages/EditBreaklistPage";
 import { DailyQuestionsModulePage } from "./components/pages/DailyQuestionsModulePage";
+import { LeaveRequestPage } from "./components/pages/LeaveRequestPage";
 
 const PRODUCT_NAME = "Sparkle Timekeeping Admin Dashboard";
 const pagePaths: Record<string, string> = {
@@ -27,6 +28,7 @@ const pagePaths: Record<string, string> = {
   "breaklist-summary": "/breaklist-summary",
   "generated-breaklist": "/generated-breaklist",
   "edit-breaklist": "/edit-breaklist",
+  "leave-requests": "/leave-requests",
   "daily-questions-question-bank": "/daily-questions/question-bank",
   "daily-questions-categories": "/daily-questions/categories",
   "daily-questions-rules": "/daily-questions/question-rules",
@@ -150,6 +152,8 @@ export default function App() {
         return <UsersPage />;
       case "archived-users":
         return <ArchivedUsersPage />;
+      case "leave-requests":
+        return <LeaveRequestPage />;
       case "time-adjustment":
         return <TimeAdjustmentPage />;
       case "schedules":
@@ -240,6 +244,13 @@ export default function App() {
           { label: PRODUCT_NAME, page: "overview" },
           { label: "User Management", page: "users" },
           { label: "Archived Users" },
+        ],
+      },
+      "leave-requests": {
+        title: PRODUCT_NAME,
+        breadcrumbs: [
+          { label: PRODUCT_NAME, page: "overview" },
+          { label: "Leave Requests" },
         ],
       },
       "time-adjustment": {
@@ -346,6 +357,8 @@ export default function App() {
         "Admins can edit user status, assigned schedules, and access permissions.",
       "archived-users":
         "Admins can edit user status, assigned schedules, and access permissions.",
+      "leave-requests":
+        "Admins can approve or reject leave requests, adjust leave balances, and calculate leave day counts.",
       "time-adjustment":
         "Admins can edit time-in, time-out, break entries, and mark records as incomplete or reviewed.",
       schedules:

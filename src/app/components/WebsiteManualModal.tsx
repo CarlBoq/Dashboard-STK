@@ -77,7 +77,25 @@ export function WebsiteManualModal({ open, onClose }: WebsiteManualModalProps) {
           </section>
 
           <section>
-            <h3 className="font-semibold text-gray-900 mb-1">7. Notes</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">7. Daily Questions Manager</h3>
+            <ul className="list-disc pl-5 space-y-1">
+              <li><span className="font-medium">Question Bank</span>: Create, preview, edit, and delete daily questions.</li>
+              <li>Create categories first before adding questions, because each question must belong to a category.</li>
+              <li>Duplicate question names and duplicate category names are blocked.</li>
+              <li><span className="font-medium">Categories</span>: Add, rename, activate, or remove categories. Linked categories cannot be deleted until their questions are moved or removed.</li>
+              <li><span className="font-medium">Question Rules</span>: Set questions per day, choose active categories, and choose the question pool mode.</li>
+              <li><span className="font-medium">Random</span> uses eligible active questions from the pool.</li>
+              <li><span className="font-medium">Manual</span> uses only the questions you manually selected.</li>
+              <li><span className="font-medium">Mixed</span> uses manually selected questions first, then fills remaining slots with other eligible active questions.</li>
+              <li><span className="font-medium">Require completion before timeout</span> forces employees to answer the daily questions before finishing timeout.</li>
+              <li>Use the rule preview to simulate the employee questionnaire flow before going live.</li>
+              <li><span className="font-medium">Employee Responses</span> shows who answered, what they answered, and whether the response was completed.</li>
+              <li><span className="font-medium">Reports &amp; Analytics</span> includes completion rate, correctness, top wrong questions, category performance, and the question maker leaderboard.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3 className="font-semibold text-gray-900 mb-1">8. Notes</h3>
             <ul className="list-disc pl-5 space-y-1">
               <li>This dashboard is UI-focused and uses local/mock state.</li>
               <li>Actions and modals demonstrate workflow behavior without backend calls.</li>
