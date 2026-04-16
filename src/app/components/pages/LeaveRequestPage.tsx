@@ -19,8 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type LeaveType = 'vacation' | 'sick' | 'emergency' | 'paternity' | 'maternity';
-type LeaveStatus = 'pending' | 'approved' | 'rejected';
+type LeaveStatus = 'pending' | 'approved' | 'revision';
 
 const LEAVE_TOTAL = 5;
 
@@ -32,19 +31,13 @@ interface LeaveBalance {
   used: number;
 }
 
-interface LeavePolicy {
-  type: LeaveType;
-  minDays: number;
-  maxDays: number;
-}
-
 interface LeaveRequest {
   id: string;
   requestId: string;
   employeeName: string;
   email: string;
   store: string;
-  leaveType: LeaveType;
+  leaveType: string;
   startDate: string;
   endDate: string;
   totalDays: number;
@@ -59,13 +52,6 @@ interface LeaveRequest {
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
-const initialPolicies: LeavePolicy[] = [
-  { type: 'vacation',  minDays: 1, maxDays: 5 },
-  { type: 'sick',      minDays: 1, maxDays: 3 },
-  { type: 'emergency', minDays: 1, maxDays: 2 },
-  { type: 'paternity', minDays: 1, maxDays: 5 },
-  { type: 'maternity', minDays: 1, maxDays: 5 },
-];
 
 const storeOptions = [
   'All Stores',
@@ -126,9 +112,9 @@ const initialRequests: LeaveRequest[] = [
     leaveType: 'sick', startDate: '2026-04-10', endDate: '2026-04-11',
     totalDays: 2, reason: 'Migraine and vertigo episodes.',
     documents: [],
-    status: 'rejected', appliedDate: '2026-04-09',
+    status: 'revision', appliedDate: '2026-04-09',
     reviewedBy: 'Admin User', reviewedDate: '2026-04-10',
-    adminNotes: 'Rejected: No supporting medical certificate submitted.',
+    adminNotes: 'Please attach a medical certificate and resubmit.',
   },
   {
     id: '6', requestId: 'LR-2026-006', employeeName: 'Amanda Thompson',
@@ -196,9 +182,9 @@ const initialRequests: LeaveRequest[] = [
     leaveType: 'sick', startDate: '2026-03-25', endDate: '2026-03-27',
     totalDays: 3, reason: 'Post-surgery recovery.',
     documents: ['Surgical Report', 'Medical Certificate'],
-    status: 'rejected', appliedDate: '2026-03-24',
+    status: 'revision', appliedDate: '2026-03-24',
     reviewedBy: 'Admin User', reviewedDate: '2026-03-25',
-    adminNotes: 'Rejected: Surgery not covered under current sick leave policy. Please file under medical leave.',
+    adminNotes: 'Please resubmit specifying the correct leave type for post-surgery recovery.',
   },
   {
     id: '14', requestId: 'LR-2026-014', employeeName: 'David Park',
@@ -220,26 +206,16 @@ const initialRequests: LeaveRequest[] = [
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
-const leaveTypeLabel: Record<LeaveType, string> = {
-  vacation: 'Vacation Leave',
-  sick: 'Sick Leave',
-  emergency: 'Emergency Leave',
-  paternity: 'Paternity Leave',
-  maternity: 'Maternity Leave',
-};
-
 const statusColors: Record<LeaveStatus, string> = {
   pending: 'bg-amber-100 text-amber-800',
   approved: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800',
+  revision: 'bg-purple-100 text-purple-800',
 };
 
-const leaveTypeColors: Record<LeaveType, string> = {
-  vacation: 'bg-blue-100 text-blue-800',
-  sick: 'bg-red-100 text-red-800',
-  emergency: 'bg-orange-100 text-orange-800',
-  paternity: 'bg-purple-100 text-purple-800',
-  maternity: 'bg-pink-100 text-pink-800',
+const statusLabel: Record<LeaveStatus, string> = {
+  pending: 'Pending',
+  approved: 'Approved',
+  revision: 'For Revision',
 };
 
 // ─── Page Component ───────────────────────────────────────────────────────────
@@ -248,13 +224,12 @@ export function LeaveRequestPage() {
   // ── State ──────────────────────────────────────────────────────────────────
   const [requests, setRequests] = useState<LeaveRequest[]>(initialRequests);
   const [balances, setBalances] = useState<LeaveBalance[]>(initialBalances);
-  const [policies, setPolicies] = useState<LeavePolicy[]>(initialPolicies);
   const [actionConfig, setActionConfig] = useState<ActionFlowConfig | null>(null);
   const [viewRequest, setViewRequest] = useState<LeaveRequest | null>(null);
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [reqFilters, setReqFilters] = useState({
-    status: 'All', leaveType: 'All', store: 'All Stores', search: '',
+    status: 'All', store: 'All Stores', search: '',
   });
   const [appliedReqFilters, setAppliedReqFilters] = useState(reqFilters);
 
@@ -269,21 +244,24 @@ export function LeaveRequestPage() {
     const approvedMonth = requests.filter(
       (r) => r.status === 'approved' && r.reviewedDate?.startsWith(monthStr),
     ).length;
-    const rejectedMonth = requests.filter(
-      (r) => r.status === 'rejected' && r.reviewedDate?.startsWith(monthStr),
+    const revisionMonth = requests.filter(
+      (r) => r.status === 'revision' && r.reviewedDate?.startsWith(monthStr),
     ).length;
     const onLeave = requests.filter(
       (r) => r.status === 'approved' && r.startDate <= today && r.endDate >= today,
     ).length;
-    return { pending, approvedMonth, rejectedMonth, onLeave };
+    return { pending, approvedMonth, revisionMonth, onLeave };
   }, [requests]);
+
+  const balanceMap = useMemo(() =>
+    Object.fromEntries(balances.map((b) => [b.email, b])),
+  [balances]);
 
   // ── Filtered Requests ──────────────────────────────────────────────────────
   const filteredRequests = useMemo(() => {
     const kw = appliedReqFilters.search.trim().toLowerCase();
     return requests.filter((r) => {
       if (appliedReqFilters.status !== 'All' && r.status !== appliedReqFilters.status.toLowerCase()) return false;
-      if (appliedReqFilters.leaveType !== 'All' && r.leaveType !== appliedReqFilters.leaveType) return false;
       if (appliedReqFilters.store !== 'All Stores' && r.store !== appliedReqFilters.store) return false;
       if (kw && !r.employeeName.toLowerCase().includes(kw) && !r.requestId.toLowerCase().includes(kw) && !r.email.toLowerCase().includes(kw)) return false;
       return true;
@@ -308,17 +286,17 @@ export function LeaveRequestPage() {
   const handleApprove = (req: LeaveRequest) => {
     setActionConfig({
       title: `Approve Leave: ${req.requestId}`,
-      description: `Approve leave request for ${req.employeeName} (${leaveTypeLabel[req.leaveType]}, ${req.totalDays} day${req.totalDays !== 1 ? 's' : ''}).`,
+      description: `Approve leave request for ${req.employeeName} (${req.leaveType}, ${req.totalDays} day${req.totalDays !== 1 ? 's' : ''}).`,
       actionLabel: 'Approve',
       successActionVerb: 'approved',
       entityLabel: `leave request ${req.requestId}`,
       fields: [
         { key: 'employee', label: 'Employee', value: req.employeeName },
-        { key: 'leaveType', label: 'Leave Type', value: leaveTypeLabel[req.leaveType] },
+        { key: 'leaveType', label: 'Leave Type', value: req.leaveType },
         { key: 'startDate', label: 'Start Date', value: req.startDate },
         { key: 'endDate', label: 'End Date', value: req.endDate },
         { key: 'totalDays', label: 'Total Days', value: String(req.totalDays) },
-        { key: 'adminNotes', label: 'Admin Notes', placeholder: 'Optional notes for approval…', value: '' },
+        { key: 'adminNotes', label: 'Admin Notes', placeholder: 'Optional notes…', value: '' },
       ],
       onApply: (values) => {
         setRequests((prev) =>
@@ -332,26 +310,26 @@ export function LeaveRequestPage() {
     });
   };
 
-  const handleReject = (req: LeaveRequest) => {
+  const handleReturn = (req: LeaveRequest) => {
     setActionConfig({
-      title: `Reject Leave: ${req.requestId}`,
-      description: `Reject leave request for ${req.employeeName} (${leaveTypeLabel[req.leaveType]}, ${req.totalDays} day${req.totalDays !== 1 ? 's' : ''}).`,
-      actionLabel: 'Reject',
-      successActionVerb: 'rejected',
+      title: `Return for Revision: ${req.requestId}`,
+      description: `Send this request back to ${req.employeeName} to revise and resubmit.`,
+      actionLabel: 'Return for Revision',
+      successActionVerb: 'returned for revision',
       entityLabel: `leave request ${req.requestId}`,
       fields: [
         { key: 'employee', label: 'Employee', value: req.employeeName },
-        { key: 'leaveType', label: 'Leave Type', value: leaveTypeLabel[req.leaveType] },
+        { key: 'leaveType', label: 'Leave Type', value: req.leaveType },
         { key: 'startDate', label: 'Start Date', value: req.startDate },
         { key: 'endDate', label: 'End Date', value: req.endDate },
         { key: 'totalDays', label: 'Total Days', value: String(req.totalDays) },
-        { key: 'adminNotes', label: 'Rejection Reason', placeholder: 'Required: state the reason for rejection…', value: '' },
+        { key: 'adminNotes', label: 'Notes for Employee', placeholder: 'Required: explain what needs to be corrected…', value: '' },
       ],
       onApply: (values) => {
         setRequests((prev) =>
           prev.map((r) =>
             r.id === req.id
-              ? { ...r, status: 'rejected', reviewedBy: 'Admin User', reviewedDate: '2026-04-15', adminNotes: values.adminNotes || 'No reason provided.' }
+              ? { ...r, status: 'revision', reviewedBy: 'Admin User', reviewedDate: '2026-04-15', adminNotes: values.adminNotes || 'Please revise and resubmit.' }
               : r,
           ),
         );
@@ -397,7 +375,7 @@ export function LeaveRequestPage() {
 
   const handleRefreshRequests = () => {
     setRequests(initialRequests);
-    const reset = { status: 'All', leaveType: 'All', store: 'All Stores', search: '' };
+    const reset = { status: 'All', store: 'All Stores', search: '' };
     setReqFilters(reset);
     setAppliedReqFilters(reset);
   };
@@ -409,27 +387,6 @@ export function LeaveRequestPage() {
     setAppliedBalFilters(reset);
   };
 
-  const handleEditPolicy = (policy: LeavePolicy) => {
-    setActionConfig({
-      title: `Edit Policy: ${leaveTypeLabel[policy.type]}`,
-      description: 'Set the minimum and maximum number of days allowed for this leave type.',
-      actionLabel: 'Save Policy',
-      successActionVerb: 'updated',
-      entityLabel: `${leaveTypeLabel[policy.type]} policy`,
-      fields: [
-        { key: 'leaveType', label: 'Leave Type', value: leaveTypeLabel[policy.type] },
-        { key: 'minDays', label: 'Minimum Days', type: 'number', value: String(policy.minDays) },
-        { key: 'maxDays', label: 'Maximum Days', type: 'number', value: String(policy.maxDays) },
-      ],
-      onApply: (values) => {
-        const minDays = Math.max(1, parseInt(values.minDays, 10) || 1);
-        const maxDays = Math.max(minDays, parseInt(values.maxDays, 10) || minDays);
-        setPolicies((prev) =>
-          prev.map((p) => p.type === policy.type ? { ...p, minDays, maxDays } : p),
-        );
-      },
-    });
-  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -452,8 +409,8 @@ export function LeaveRequestPage() {
           trend={{ value: 'this month', isPositive: true }}
         />
         <KPICard
-          title="Rejected This Month"
-          value={kpi.rejectedMonth}
+          title="Returned for Revision"
+          value={kpi.revisionMonth}
           icon={X}
           color="red"
           trend={{ value: 'this month', isPositive: false }}
@@ -474,14 +431,13 @@ export function LeaveRequestPage() {
         <TabsList className="mb-4">
           <TabsTrigger value="requests">Leave Requests</TabsTrigger>
           <TabsTrigger value="balances">Leave Balances</TabsTrigger>
-          <TabsTrigger value="policy">Leave Policy</TabsTrigger>
         </TabsList>
 
         {/* ─── Leave Requests Tab ──────────────────────────────────────────── */}
         <TabsContent value="requests" className="space-y-4">
           {/* Filter Bar */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto_auto] gap-3 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto_auto] gap-3 items-end">
               <div>
                 <label className="text-sm text-gray-600">Status</label>
                 <select
@@ -489,21 +445,8 @@ export function LeaveRequestPage() {
                   onChange={(e) => setReqFilters((p) => ({ ...p, status: e.target.value }))}
                   className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1F4FD8]"
                 >
-                  {['All', 'Pending', 'Approved', 'Rejected'].map((s) => (
+                  {['All', 'Pending', 'Approved', 'Revision'].map((s) => (
                     <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm text-gray-600">Leave Type</label>
-                <select
-                  value={reqFilters.leaveType}
-                  onChange={(e) => setReqFilters((p) => ({ ...p, leaveType: e.target.value }))}
-                  className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1F4FD8]"
-                >
-                  <option value="All">All Types</option>
-                  {(Object.keys(leaveTypeLabel) as LeaveType[]).map((t) => (
-                    <option key={t} value={t}>{leaveTypeLabel[t]}</option>
                   ))}
                 </select>
               </div>
@@ -553,6 +496,7 @@ export function LeaveRequestPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="sticky left-0 z-10 bg-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">Actions</TableHead>
                     <TableHead>Request ID</TableHead>
                     <TableHead>Employee</TableHead>
                     <TableHead>Store</TableHead>
@@ -560,16 +504,39 @@ export function LeaveRequestPage() {
                     <TableHead>Start Date</TableHead>
                     <TableHead>End Date</TableHead>
                     <TableHead>Days</TableHead>
+                    <TableHead>Leaves Remaining</TableHead>
+                    <TableHead>Leaves Used</TableHead>
                     <TableHead>Reason</TableHead>
-                    <TableHead>Documents Submitted</TableHead>
                     <TableHead>Applied On</TableHead>
+                    <TableHead>Documents Submitted</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {reqPagination.paginatedItems.map((req) => (
                     <TableRow key={req.id} className="hover:bg-gray-50">
+                      <TableCell className="sticky left-0 z-10 bg-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewDetails(req)} className="text-gray-700 hover:text-gray-900 hover:bg-gray-100">
+                            <Eye className="w-4 h-4 mr-1" /> View
+                          </Button>
+                          {req.status === 'pending' && (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => handleApprove(req)} className="text-green-700 hover:text-green-800 hover:bg-green-50">
+                                <Check className="w-4 h-4 mr-1" /> Approve
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleReturn(req)} className="text-purple-700 hover:text-purple-800 hover:bg-purple-50">
+                                <X className="w-4 h-4 mr-1" /> Return
+                              </Button>
+                            </>
+                          )}
+                          {req.status !== 'pending' && (
+                            <Button variant="ghost" size="sm" onClick={() => handleApprove(req)} className="text-amber-700 hover:text-amber-800 hover:bg-amber-50">
+                              <Edit3 className="w-4 h-4 mr-1" /> Re-review
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="font-medium text-gray-900 whitespace-nowrap">{req.requestId}</TableCell>
                       <TableCell>
                         <div>
@@ -578,11 +545,7 @@ export function LeaveRequestPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-gray-600 max-w-[160px] truncate">{req.store}</TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${leaveTypeColors[req.leaveType]}`}>
-                          {leaveTypeLabel[req.leaveType]}
-                        </span>
-                      </TableCell>
+                      <TableCell className="text-sm text-gray-700 whitespace-nowrap">{req.leaveType}</TableCell>
                       <TableCell className="text-sm text-gray-600 whitespace-nowrap">{req.startDate}</TableCell>
                       <TableCell className="text-sm text-gray-600 whitespace-nowrap">{req.endDate}</TableCell>
                       <TableCell>
@@ -590,9 +553,16 @@ export function LeaveRequestPage() {
                           {req.totalDays}
                         </span>
                       </TableCell>
+                      <TableCell className="text-sm text-gray-700">
+                        {(() => { const b = balanceMap[req.email]; const rem = b ? LEAVE_TOTAL - b.used : null; return rem !== null ? <span className={rem === 0 ? 'text-red-600 font-semibold' : 'text-gray-800 font-semibold'}>{rem} / {LEAVE_TOTAL}</span> : <span className="text-gray-400 italic text-xs">—</span>; })()}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-700">
+                        {(() => { const b = balanceMap[req.email]; return b ? <span className="text-gray-800 font-semibold">{b.used} / {LEAVE_TOTAL}</span> : <span className="text-gray-400 italic text-xs">—</span>; })()}
+                      </TableCell>
                       <TableCell className="text-sm text-gray-600 max-w-[200px]">
                         <span className="line-clamp-2">{req.reason}</span>
                       </TableCell>
+                      <TableCell className="text-sm text-gray-600 whitespace-nowrap">{req.appliedDate}</TableCell>
                       <TableCell>
                         {req.documents.length > 0 ? (
                           <div className="flex flex-col gap-1">
@@ -606,59 +576,16 @@ export function LeaveRequestPage() {
                           <span className="text-xs text-gray-400 italic">None</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600 whitespace-nowrap">{req.appliedDate}</TableCell>
                       <TableCell>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${statusColors[req.status]}`}>
-                          {req.status}
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors[req.status]}`}>
+                          {statusLabel[req.status]}
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetails(req)}
-                            className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-                          >
-                            <Eye className="w-4 h-4 mr-1" /> View
-                          </Button>
-                          {req.status === 'pending' && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleApprove(req)}
-                                className="text-green-700 hover:text-green-800 hover:bg-green-50"
-                              >
-                                <Check className="w-4 h-4 mr-1" /> Approve
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleReject(req)}
-                                className="text-red-700 hover:text-red-800 hover:bg-red-50"
-                              >
-                                <X className="w-4 h-4 mr-1" /> Reject
-                              </Button>
-                            </>
-                          )}
-                          {req.status !== 'pending' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleApprove({ ...req, status: 'pending' } as LeaveRequest)}
-                              className="text-amber-700 hover:text-amber-800 hover:bg-amber-50"
-                            >
-                              <Edit3 className="w-4 h-4 mr-1" /> Re-review
-                            </Button>
-                          )}
-                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
                   {reqPagination.paginatedItems.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={12} className="text-center py-8 text-gray-400">
+                      <TableCell colSpan={14} className="text-center py-8 text-gray-400">
                         No leave requests match the current filters.
                       </TableCell>
                     </TableRow>
@@ -793,58 +720,6 @@ export function LeaveRequestPage() {
           </div>
         </TabsContent>
 
-        {/* ─── Leave Policy Tab ────────────────────────────────────────────── */}
-        <TabsContent value="policy">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-200">
-              <h3 className="text-base font-semibold text-gray-900">Leave Policy</h3>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Configure the minimum and maximum number of days allowed per leave type.
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <Table className="w-auto min-w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Leave Type</TableHead>
-                    <TableHead>Minimum Days</TableHead>
-                    <TableHead>Maximum Days</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {policies.map((policy) => (
-                    <TableRow key={policy.type} className="hover:bg-gray-50">
-                      <TableCell>
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${leaveTypeColors[policy.type]}`}>
-                          {leaveTypeLabel[policy.type]}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm font-semibold text-gray-800">{policy.minDays}</span>
-                        <span className="text-xs text-gray-400 ml-1">day{policy.minDays !== 1 ? 's' : ''}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm font-semibold text-gray-800">{policy.maxDays}</span>
-                        <span className="text-xs text-gray-400 ml-1">day{policy.maxDays !== 1 ? 's' : ''}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditPolicy(policy)}
-                          className="text-[#1F4FD8] hover:text-[#1845b8] hover:bg-blue-50"
-                        >
-                          <Edit3 className="w-4 h-4 mr-1" /> Edit
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        </TabsContent>
       </Tabs>
 
       {/* View Details Dialog */}
@@ -867,7 +742,7 @@ export function LeaveRequestPage() {
                 <div><span className="font-semibold text-gray-800">Email:</span><br /><span className="text-gray-600">{viewRequest.email}</span></div>
                 <div><span className="font-semibold text-gray-800">Store:</span><br /><span className="text-gray-600">{viewRequest.store}</span></div>
                 <div><span className="font-semibold text-gray-800">Leave Type:</span><br />
-                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${leaveTypeColors[viewRequest.leaveType]}`}>{leaveTypeLabel[viewRequest.leaveType]}</span>
+                  <span className="text-gray-600 text-sm">{viewRequest.leaveType}</span>
                 </div>
                 <div><span className="font-semibold text-gray-800">Start Date:</span><br /><span className="text-gray-600">{viewRequest.startDate}</span></div>
                 <div><span className="font-semibold text-gray-800">End Date:</span><br /><span className="text-gray-600">{viewRequest.endDate}</span></div>
