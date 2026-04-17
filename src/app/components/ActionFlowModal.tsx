@@ -16,10 +16,13 @@ export interface ActionFlowConfig {
   description: string;
   actionLabel?: string;
   successActionVerb?: string;
+  secondaryActionLabel?: string;
+  secondarySuccessActionVerb?: string;
   entityLabel?: string;
   fields: ActionField[];
   readOnly?: boolean;
   onApply?: (values: Record<string, string>) => void;
+  onSecondaryApply?: (values: Record<string, string>) => void;
 }
 
 interface ActionFlowModalProps {
@@ -32,6 +35,7 @@ export function ActionFlowModal({ config, onClose }: ActionFlowModalProps) {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isCompletedOpen, setIsCompletedOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [pendingAction, setPendingAction] = useState<'primary' | 'secondary'>('primary');
 
   useEffect(() => {
     if (!config) {
@@ -39,6 +43,7 @@ export function ActionFlowModal({ config, onClose }: ActionFlowModalProps) {
       setIsConfirmOpen(false);
       setIsCompletedOpen(false);
       setValues({});
+      setPendingAction('primary');
       return;
     }
 
@@ -51,12 +56,16 @@ export function ActionFlowModal({ config, onClose }: ActionFlowModalProps) {
     setIsEditOpen(true);
     setIsConfirmOpen(false);
     setIsCompletedOpen(false);
+    setPendingAction('primary');
   }, [config]);
 
   const completedMessage = useMemo(() => {
     if (!config) return '';
-    return `You have successfully ${config.successActionVerb ?? 'updated'} ${config.entityLabel ?? 'this item'}.`;
-  }, [config]);
+    const successVerb = pendingAction === 'secondary'
+      ? (config.secondarySuccessActionVerb ?? config.successActionVerb ?? 'updated')
+      : (config.successActionVerb ?? 'updated');
+    return `You have successfully ${successVerb} ${config.entityLabel ?? 'this item'}.`;
+  }, [config, pendingAction]);
 
   if (!config) return null;
 
@@ -64,13 +73,15 @@ export function ActionFlowModal({ config, onClose }: ActionFlowModalProps) {
     setValues((prev) => ({ ...prev, [key]: nextValue }));
   };
 
-  const handleRequestApply = () => {
+  const handleRequestApply = (action: 'primary' | 'secondary' = 'primary') => {
+    setPendingAction(action);
     if (config.readOnly) {
-      handleCloseAll();
-      return;
+      setIsEditOpen(false);
+      setIsConfirmOpen(true);
+    } else {
+      setIsEditOpen(false);
+      setIsConfirmOpen(true);
     }
-    setIsEditOpen(false);
-    setIsConfirmOpen(true);
   };
 
   const handleCancelConfirm = () => {
@@ -79,7 +90,11 @@ export function ActionFlowModal({ config, onClose }: ActionFlowModalProps) {
   };
 
   const handleConfirmApply = () => {
-    config.onApply?.(values);
+    if (pendingAction === 'secondary') {
+      config.onSecondaryApply?.(values);
+    } else {
+      config.onApply?.(values);
+    }
     setIsConfirmOpen(false);
     setIsCompletedOpen(true);
   };
@@ -133,13 +148,23 @@ export function ActionFlowModal({ config, onClose }: ActionFlowModalProps) {
           </div>
           <DialogFooter>
             {config.readOnly ? (
-              <Button onClick={handleCloseAll}>Close</Button>
+              <>
+                <Button variant="outline" onClick={handleCloseAll}>Close</Button>
+                {config.secondaryActionLabel && config.onSecondaryApply && (
+                  <Button variant="outline" onClick={() => handleRequestApply('secondary')}>
+                    {config.secondaryActionLabel}
+                  </Button>
+                )}
+                {config.actionLabel && config.onApply && (
+                  <Button onClick={() => handleRequestApply('primary')}>{config.actionLabel}</Button>
+                )}
+              </>
             ) : (
               <>
                 <Button variant="outline" onClick={handleCloseAll}>
                   Cancel
                 </Button>
-                <Button onClick={handleRequestApply}>{config.actionLabel ?? 'Apply'}</Button>
+                <Button onClick={() => handleRequestApply('primary')}>{config.actionLabel ?? 'Apply'}</Button>
               </>
             )}
           </DialogFooter>
@@ -150,7 +175,9 @@ export function ActionFlowModal({ config, onClose }: ActionFlowModalProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Action</DialogTitle>
-            <DialogDescription>You are about to apply changes to this data.</DialogDescription>
+            <DialogDescription>
+              You are about to {pendingAction === 'secondary' ? (config.secondaryActionLabel ?? 'apply this secondary action') : (config.actionLabel ?? 'apply changes')} for this data.
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={handleCancelConfirm}>
