@@ -75,6 +75,28 @@ function genId() {
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const TODAY = '2026-04-16';
 
+function nextResetDates(lt: LeaveType): { expiresOn: string; resetOn: string } {
+  if (lt.resetFrequency === 'never' || lt.resetDay === null) return { expiresOn: '', resetOn: '' };
+
+  const today = new Date('2026-04-17');
+  let resetDate: Date;
+
+  if (lt.resetFrequency === 'monthly') {
+    const candidate = new Date(today.getFullYear(), today.getMonth(), lt.resetDay);
+    resetDate = candidate > today ? candidate : new Date(today.getFullYear(), today.getMonth() + 1, lt.resetDay);
+  } else {
+    // annual
+    const m = (lt.resetMonth ?? 1) - 1;
+    const candidate = new Date(today.getFullYear(), m, lt.resetDay);
+    resetDate = candidate > today ? candidate : new Date(today.getFullYear() + 1, m, lt.resetDay);
+  }
+
+  const expires = new Date(resetDate);
+  expires.setDate(expires.getDate() - 1);
+  const fmt = (d: Date) => d.toISOString().split('T')[0];
+  return { expiresOn: fmt(expires), resetOn: fmt(resetDate) };
+}
+
 function formatResetDate(lt: LeaveType): string {
   if (lt.resetFrequency === 'never') return 'Never';
   if (lt.resetFrequency === 'monthly') return lt.resetDay !== null ? `Day ${lt.resetDay} of every month` : 'Never';
@@ -616,7 +638,15 @@ export function LeaveRequestPage() {
   };
 
   const handleSelectLtForEmp = (lt: LeaveType) => {
-    setAddLtForm(p => ({ ...p, leaveTypeId: lt.id, leaveTypeName: lt.name, totalCredits: String(lt.defaultCredits) }));
+    const { expiresOn, resetOn } = nextResetDates(lt);
+    setAddLtForm(p => ({
+      ...p,
+      leaveTypeId:   lt.id,
+      leaveTypeName: lt.name,
+      totalCredits:  String(lt.defaultCredits),
+      expiresOn,
+      resetOn,
+    }));
   };
 
   const handleCreateLtForEmp = (name: string) => {
