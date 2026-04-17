@@ -799,6 +799,7 @@ export function LeaveRequestPage() {
                     <TableHead>Employee</TableHead>
                     <TableHead>Store</TableHead>
                     <TableHead>Leave Type</TableHead>
+                    <TableHead>Remaining Credits</TableHead>
                     <TableHead>Start Date</TableHead>
                     <TableHead>End Date</TableHead>
                     <TableHead>Days</TableHead>
@@ -850,6 +851,19 @@ export function LeaveRequestPage() {
                       </TableCell>
                       <TableCell className="text-sm text-gray-600 max-w-[160px] truncate">{req.store}</TableCell>
                       <TableCell className="text-sm text-gray-700 whitespace-nowrap">{req.leaveType}</TableCell>
+                      <TableCell>
+                        {(() => {
+                          const empBal = balances.find(b => b.email === req.email);
+                          const entry = empBal?.leaves.find(e => matchesLeaveType(e.leaveTypeName, req.leaveType));
+                          if (!entry) return <span className="text-xs text-gray-400 italic">N/A</span>;
+                          const remaining = entry.totalCredits - entry.used;
+                          return (
+                            <span className={`text-sm font-semibold ${remaining === 0 ? 'text-red-600' : remaining <= 1 ? 'text-amber-600' : 'text-green-700'}`}>
+                              {remaining} <span className="text-xs font-normal text-gray-400">/ {entry.totalCredits}</span>
+                            </span>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell className="text-sm text-gray-600 whitespace-nowrap">{req.startDate}</TableCell>
                       <TableCell className="text-sm text-gray-600 whitespace-nowrap">{req.endDate}</TableCell>
                       <TableCell>
@@ -876,7 +890,7 @@ export function LeaveRequestPage() {
                     </TableRow>
                   ))}
                   {reqPagination.paginatedItems.length === 0 && (
-                    <TableRow><TableCell colSpan={12} className="text-center py-8 text-gray-400">No leave requests match the current filters.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={13} className="text-center py-8 text-gray-400">No leave requests match the current filters.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -1165,7 +1179,7 @@ export function LeaveRequestPage() {
 
       {/* ── Employee Balance Management Dialog ──────────────────────────── */}
       <Dialog open={!!managingEmp} onOpenChange={open => { if (!open) setManagingEmp(null); }}>
-        <DialogContent className="w-[96vw] max-w-3xl max-h-[90vh]">
+        <DialogContent className="w-[90vw] max-w-[900px] max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Leave Balances — {managingEmpLive?.employeeName}</DialogTitle>
             <DialogDescription>{managingEmpLive?.email} · {managingEmpLive?.store}</DialogDescription>
@@ -1179,13 +1193,13 @@ export function LeaveRequestPage() {
                 <Table className="w-auto min-w-full">
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Actions</TableHead>
                       <TableHead>Leave Type</TableHead>
                       <TableHead>Credits</TableHead>
                       <TableHead>Used</TableHead>
                       <TableHead>Remaining</TableHead>
                       <TableHead>Expires On</TableHead>
                       <TableHead>Resets On</TableHead>
-                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1193,17 +1207,6 @@ export function LeaveRequestPage() {
                       const remaining = entry.totalCredits - entry.used;
                       return (
                         <TableRow key={entry.leaveTypeId} className="hover:bg-gray-50">
-                          <TableCell className="font-medium text-gray-900">{entry.leaveTypeName}</TableCell>
-                          <TableCell>
-                            <span className="text-sm font-semibold text-gray-800">{entry.totalCredits}</span>
-                            <span className="text-xs text-gray-400 ml-1">days</span>
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-600">{entry.used}</TableCell>
-                          <TableCell>
-                            <span className={`text-sm font-semibold ${remaining === 0 ? 'text-red-600' : 'text-green-700'}`}>{remaining}</span>
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-500 whitespace-nowrap">{entry.expiresOn ?? '—'}</TableCell>
-                          <TableCell className="text-sm text-gray-500 whitespace-nowrap">{entry.resetOn ?? '—'}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
                               <Button variant="ghost" size="sm" onClick={() => openAdjust(managingEmpLive.id, entry)} className="text-[#1F4FD8] hover:text-[#1845b8] hover:bg-blue-50">
@@ -1214,6 +1217,17 @@ export function LeaveRequestPage() {
                               </Button>
                             </div>
                           </TableCell>
+                          <TableCell className="font-medium text-gray-900 whitespace-nowrap">{entry.leaveTypeName}</TableCell>
+                          <TableCell>
+                            <span className="text-sm font-semibold text-gray-800">{entry.totalCredits}</span>
+                            <span className="text-xs text-gray-400 ml-1">days</span>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-600">{entry.used}</TableCell>
+                          <TableCell>
+                            <span className={`text-sm font-semibold ${remaining === 0 ? 'text-red-600' : 'text-green-700'}`}>{remaining}</span>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-500 whitespace-nowrap">{entry.expiresOn ?? '—'}</TableCell>
+                          <TableCell className="text-sm text-gray-500 whitespace-nowrap">{entry.resetOn ?? '—'}</TableCell>
                         </TableRow>
                       );
                     })}
