@@ -78,14 +78,14 @@ const TODAY = '2026-04-16';
 function nextResetDates(lt: LeaveType): { expiresOn: string; resetOn: string } {
   if (lt.resetFrequency === 'never' || lt.resetDay === null) return { expiresOn: '', resetOn: '' };
 
-  const today = new Date('2026-04-17');
+  const today = new Date(TODAY);
+  const fmt = (d: Date) => d.toISOString().split('T')[0];
   let resetDate: Date;
 
   if (lt.resetFrequency === 'monthly') {
     const candidate = new Date(today.getFullYear(), today.getMonth(), lt.resetDay);
     resetDate = candidate > today ? candidate : new Date(today.getFullYear(), today.getMonth() + 1, lt.resetDay);
   } else {
-    // annual
     const m = (lt.resetMonth ?? 1) - 1;
     const candidate = new Date(today.getFullYear(), m, lt.resetDay);
     resetDate = candidate > today ? candidate : new Date(today.getFullYear() + 1, m, lt.resetDay);
@@ -93,7 +93,6 @@ function nextResetDates(lt: LeaveType): { expiresOn: string; resetOn: string } {
 
   const expires = new Date(resetDate);
   expires.setDate(expires.getDate() - 1);
-  const fmt = (d: Date) => d.toISOString().split('T')[0];
   return { expiresOn: fmt(expires), resetOn: fmt(resetDate) };
 }
 
@@ -512,11 +511,41 @@ export function LeaveRequestPage() {
   const balPagination = useTablePagination(filteredBalances);
   const ltPagination  = useTablePagination(leaveTypes);
 
+  // ── Balance deduction helper ───────────────────────────────────────────────
+  // Matches free-text leave type in requests to named leave type in balances
+  const matchesLeaveType = (balTypeName: string, reqType: string) => {
+    const a = balTypeName.toLowerCase().trim();
+    const b = reqType.toLowerCase().trim();
+    return a === b || a.includes(b) || b.includes(a);
+  };
+
+  const deductBalance = (email: string, leaveType: string, days: number) => {
+    setBalances(prev => prev.map(b => {
+      if (b.email !== email) return b;
+      return { ...b, leaves: b.leaves.map(e =>
+        matchesLeaveType(e.leaveTypeName, leaveType)
+          ? { ...e, used: Math.min(e.used + days, e.totalCredits) }
+          : e
+      )};
+    }));
+  };
+
+  const restoreBalance = (email: string, leaveType: string, days: number) => {
+    setBalances(prev => prev.map(b => {
+      if (b.email !== email) return b;
+      return { ...b, leaves: b.leaves.map(e =>
+        matchesLeaveType(e.leaveTypeName, leaveType)
+          ? { ...e, used: Math.max(e.used - days, 0) }
+          : e
+      )};
+    }));
+  };
+
   // ── Request handlers ───────────────────────────────────────────────────────
   const handleApprove = (req: LeaveRequest) => {
     setActionConfig({
       title: `Approve Leave: ${req.requestId}`,
-      description: `Approve leave for ${req.employeeName} (${req.leaveType}, ${req.totalDays} day${req.totalDays !== 1 ? 's' : ''}).`,
+      description: `Approve leave for ${req.employeeName} (${req.leaveType}, ${req.totalDays} day${req.totalDays !== 1 ? 's' : ''}). Credits will be deducted from their balance.`,
       actionLabel: 'Approve', successActionVerb: 'approved', entityLabel: `leave request ${req.requestId}`,
       fields: [
         { key: 'employee',   label: 'Employee',    value: req.employeeName },
@@ -527,9 +556,12 @@ export function LeaveRequestPage() {
         { key: 'adminNotes', label: 'Admin Notes', placeholder: 'Optional notes…', value: '' },
       ],
       onApply: (values) => {
+        const wasApproved = req.status === 'approved';
         setRequests(prev => prev.map(r =>
-          r.id === req.id ? { ...r, status: 'approved', reviewedBy: 'Admin User', reviewedDate: '2026-04-16', adminNotes: values.adminNotes || undefined } : r
+          r.id === req.id ? { ...r, status: 'approved', reviewedBy: 'Admin User', reviewedDate: TODAY, adminNotes: values.adminNotes || undefined } : r
         ));
+        // Only deduct credits when first approving — not on re-approve
+        if (!wasApproved) deductBalance(req.email, req.leaveType, req.totalDays);
       },
     });
   };
@@ -540,51 +572,22 @@ export function LeaveRequestPage() {
       description: `Send this request back to ${req.employeeName} to revise and resubmit.`,
       actionLabel: 'Return for Revision', successActionVerb: 'returned for revision', entityLabel: `leave request ${req.requestId}`,
       fields: [
-        { key: 'employee',   label: 'Employee',          value: req.employeeName },
-        { key: 'leaveType',  label: 'Leave Type',        value: req.leaveType },
-        { key: 'totalDays',  label: 'Total Days',        value: String(req.totalDays) },
+        { key: 'employee',   label: 'Employee',           value: req.employeeName },
+        { key: 'leaveType',  label: 'Leave Type',         value: req.leaveType },
+        { key: 'totalDays',  label: 'Total Days',         value: String(req.totalDays) },
         { key: 'adminNotes', label: 'Notes for Employee', placeholder: 'Explain what needs to be corrected…', value: '' },
       ],
       onApply: (values) => {
+        const wasApproved = req.status === 'approved';
         setRequests(prev => prev.map(r =>
-          r.id === req.id ? { ...r, status: 'revision', reviewedBy: 'Admin User', reviewedDate: '2026-04-16', adminNotes: values.adminNotes || 'Please revise and resubmit.' } : r
+          r.id === req.id ? { ...r, status: 'revision', reviewedBy: 'Admin User', reviewedDate: TODAY, adminNotes: values.adminNotes || 'Please revise and resubmit.' } : r
         ));
+        // Restore credits if previously approved
+        if (wasApproved) restoreBalance(req.email, req.leaveType, req.totalDays);
       },
     });
   };
 
-  const handleReReview = (req: LeaveRequest) => {
-    setActionConfig({
-      title: `Re-review Leave: ${req.requestId}`,
-      description: `Review the submitted leave details for ${req.employeeName}. This re-review screen is view-only.`,
-      readOnly: true,
-      actionLabel: 'Approve',
-      successActionVerb: 'approved',
-      secondaryActionLabel: 'Return',
-      secondarySuccessActionVerb: 'returned for revision',
-      entityLabel: `leave request ${req.requestId}`,
-      fields: [
-        { key: 'employee', label: 'Employee', value: req.employeeName },
-        { key: 'leaveType', label: 'Leave Type', value: req.leaveType },
-        { key: 'startDate', label: 'Start Date', value: req.startDate },
-        { key: 'endDate', label: 'End Date', value: req.endDate },
-        { key: 'totalDays', label: 'Total Days', value: String(req.totalDays) },
-        { key: 'appliedDate', label: 'Applied On', value: req.appliedDate },
-        { key: 'status', label: 'Current Status', value: statusLabel[req.status] },
-        { key: 'adminNotes', label: 'Admin Notes', value: req.adminNotes || '-' },
-      ],
-      onApply: () => {
-        setRequests(prev => prev.map(r =>
-          r.id === req.id ? { ...r, status: 'approved', reviewedBy: 'Admin User', reviewedDate: TODAY } : r
-        ));
-      },
-      onSecondaryApply: () => {
-        setRequests(prev => prev.map(r =>
-          r.id === req.id ? { ...r, status: 'revision', reviewedBy: 'Admin User', reviewedDate: TODAY } : r
-        ));
-      },
-    });
-  };
 
   // ── Leave Type CRUD ────────────────────────────────────────────────────────
   const openCreateLt = () => {
@@ -631,6 +634,15 @@ export function LeaveRequestPage() {
   };
 
   // ── Employee Balance management ────────────────────────────────────────────
+  // Always derived live so balance changes (from approvals) reflect immediately
+  const managingEmpLive = useMemo(() =>
+    managingEmp ? (balances.find(b => b.id === managingEmp.id) ?? managingEmp) : null,
+  [managingEmp, balances]);
+
+  const empRequests = useMemo(() =>
+    managingEmpLive ? requests.filter(r => r.email === managingEmpLive.email) : [],
+  [managingEmpLive, requests]);
+
   const openManageEmp = (bal: LeaveBalance) => {
     setManagingEmp(bal);
     setAddLtOpen(false);
@@ -656,7 +668,7 @@ export function LeaveRequestPage() {
   };
 
   const handleAddLeaveEntry = () => {
-    if (!managingEmp || !addLtForm.leaveTypeId) return;
+    if (!managingEmpLive || !addLtForm.leaveTypeId) return;
     const entry: EmployeeLeaveEntry = {
       leaveTypeId:   addLtForm.leaveTypeId,
       leaveTypeName: addLtForm.leaveTypeName,
@@ -665,17 +677,13 @@ export function LeaveRequestPage() {
       expiresOn: addLtForm.expiresOn || null,
       resetOn:   addLtForm.resetOn   || null,
     };
-    const update = (b: LeaveBalance) => b.id === managingEmp.id ? { ...b, leaves: [...b.leaves, entry] } : b;
-    setBalances(prev => prev.map(update));
-    setManagingEmp(prev => prev ? { ...prev, leaves: [...prev.leaves, entry] } : null);
+    setBalances(prev => prev.map(b => b.id === managingEmpLive.id ? { ...b, leaves: [...b.leaves, entry] } : b));
     setAddLtOpen(false);
     setAddLtForm({ leaveTypeId: '', leaveTypeName: '', totalCredits: '', expiresOn: '', resetOn: '' });
   };
 
   const handleRemoveLeaveEntry = (balId: string, leaveTypeId: string) => {
-    const filter = (b: LeaveBalance) => b.id === balId ? { ...b, leaves: b.leaves.filter(e => e.leaveTypeId !== leaveTypeId) } : b;
-    setBalances(prev => prev.map(filter));
-    setManagingEmp(prev => prev ? { ...prev, leaves: prev.leaves.filter(e => e.leaveTypeId !== leaveTypeId) } : null);
+    setBalances(prev => prev.map(b => b.id === balId ? { ...b, leaves: b.leaves.filter(e => e.leaveTypeId !== leaveTypeId) } : b));
   };
 
   const openAdjust = (balId: string, entry: EmployeeLeaveEntry) => {
@@ -689,17 +697,11 @@ export function LeaveRequestPage() {
     const { balId, entry } = adjustDialog;
     const applyEntry = (e: EmployeeLeaveEntry): EmployeeLeaveEntry => {
       if (e.leaveTypeId !== entry.leaveTypeId) return e;
-      if (adjustForm.action === 'add') {
-        return { ...e, totalCredits: e.totalCredits + days };
-      }
-      if (adjustForm.action === 'set') {
-        return { ...e, totalCredits: Math.max(days, e.used) };
-      }
+      if (adjustForm.action === 'add') return { ...e, totalCredits: e.totalCredits + days };
+      if (adjustForm.action === 'set') return { ...e, totalCredits: Math.max(days, e.used) };
       return { ...e, used: Math.min(e.used + days, e.totalCredits) };
     };
-    const applyBal = (b: LeaveBalance) => b.id === balId ? { ...b, leaves: b.leaves.map(applyEntry) } : b;
-    setBalances(prev => prev.map(applyBal));
-    setManagingEmp(prev => prev ? { ...prev, leaves: prev.leaves.map(applyEntry) } : null);
+    setBalances(prev => prev.map(b => b.id === balId ? { ...b, leaves: b.leaves.map(applyEntry) } : b));
     setAdjustDialog(null);
   };
 
@@ -823,10 +825,20 @@ export function LeaveRequestPage() {
                               </Button>
                             </>
                           )}
-                          {req.status !== 'pending' && (
-                            <Button variant="ghost" size="sm" onClick={() => handleReReview(req)} className="text-amber-700 hover:text-amber-800 hover:bg-amber-50">
-                              <Edit3 className="w-4 h-4 mr-1" /> Re-review
+                          {req.status === 'approved' && (
+                            <Button variant="ghost" size="sm" onClick={() => handleReturn(req)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                              <X className="w-4 h-4 mr-1" /> Revoke
                             </Button>
+                          )}
+                          {req.status === 'revision' && (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => handleApprove(req)} className="text-green-700 hover:text-green-800 hover:bg-green-50">
+                                <Check className="w-4 h-4 mr-1" /> Approve
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleReturn(req)} className="text-purple-700 hover:text-purple-800 hover:bg-purple-50">
+                                <X className="w-4 h-4 mr-1" /> Return
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>
@@ -1154,108 +1166,155 @@ export function LeaveRequestPage() {
       <Dialog open={!!managingEmp} onOpenChange={open => { if (!open) setManagingEmp(null); }}>
         <DialogContent className="w-[96vw] max-w-3xl max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle>Leave Balances — {managingEmp?.employeeName}</DialogTitle>
-            <DialogDescription>{managingEmp?.email} · {managingEmp?.store}</DialogDescription>
+            <DialogTitle>Leave Balances — {managingEmpLive?.employeeName}</DialogTitle>
+            <DialogDescription>{managingEmpLive?.email} · {managingEmpLive?.store}</DialogDescription>
           </DialogHeader>
-          <div className="overflow-auto max-h-[60vh] space-y-4">
-            {managingEmp && managingEmp.leaves.length > 0 ? (
-              <Table className="w-auto min-w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Leave Type</TableHead>
-                    <TableHead>Credits</TableHead>
-                    <TableHead>Used</TableHead>
-                    <TableHead>Remaining</TableHead>
-                    <TableHead>Expires On</TableHead>
-                    <TableHead>Resets On</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {managingEmp.leaves.map(entry => {
-                    const remaining = entry.totalCredits - entry.used;
-                    return (
-                      <TableRow key={entry.leaveTypeId} className="hover:bg-gray-50">
-                        <TableCell className="font-medium text-gray-900">{entry.leaveTypeName}</TableCell>
+          <div className="overflow-auto max-h-[70vh] space-y-5">
+
+            {/* Leave credits by type */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-gray-700">Leave Credits by Type</p>
+              {managingEmpLive && managingEmpLive.leaves.length > 0 ? (
+                <Table className="w-auto min-w-full">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Leave Type</TableHead>
+                      <TableHead>Credits</TableHead>
+                      <TableHead>Used</TableHead>
+                      <TableHead>Remaining</TableHead>
+                      <TableHead>Expires On</TableHead>
+                      <TableHead>Resets On</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {managingEmpLive.leaves.map(entry => {
+                      const remaining = entry.totalCredits - entry.used;
+                      return (
+                        <TableRow key={entry.leaveTypeId} className="hover:bg-gray-50">
+                          <TableCell className="font-medium text-gray-900">{entry.leaveTypeName}</TableCell>
+                          <TableCell>
+                            <span className="text-sm font-semibold text-gray-800">{entry.totalCredits}</span>
+                            <span className="text-xs text-gray-400 ml-1">days</span>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-600">{entry.used}</TableCell>
+                          <TableCell>
+                            <span className={`text-sm font-semibold ${remaining === 0 ? 'text-red-600' : 'text-green-700'}`}>{remaining}</span>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-500 whitespace-nowrap">{entry.expiresOn ?? '—'}</TableCell>
+                          <TableCell className="text-sm text-gray-500 whitespace-nowrap">{entry.resetOn ?? '—'}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => openAdjust(managingEmpLive.id, entry)} className="text-[#1F4FD8] hover:text-[#1845b8] hover:bg-blue-50">
+                                <Edit3 className="w-4 h-4 mr-1" /> Adjust
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleRemoveLeaveEntry(managingEmpLive.id, entry.leaveTypeId)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                <Trash2 className="w-4 h-4 mr-1" /> Remove
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-6 text-gray-400 text-sm">No leave types assigned yet.</div>
+              )}
+
+              {/* Add Leave Type */}
+              {!addLtOpen ? (
+                <Button variant="outline" className="w-full border-dashed text-[#1F4FD8] hover:bg-blue-50"
+                  onClick={() => { setAddLtOpen(true); setAddLtForm({ leaveTypeId: '', leaveTypeName: '', totalCredits: '', expiresOn: '', resetOn: '' }); }}>
+                  <Plus className="w-4 h-4 mr-2" /> Add Leave Type
+                </Button>
+              ) : (
+                <div className="border border-blue-200 rounded-lg p-4 bg-blue-50/30 space-y-3">
+                  <p className="text-sm font-medium text-gray-700">Add Leave Type</p>
+                  <LeaveTypeCombobox
+                    leaveTypes={leaveTypes}
+                    excludeIds={managingEmpLive?.leaves.map(e => e.leaveTypeId) ?? []}
+                    onSelect={handleSelectLtForEmp}
+                    onCreateNew={handleCreateLtForEmp}
+                  />
+                  {addLtForm.leaveTypeId && (
+                    <>
+                      <p className="text-xs text-gray-500">Selected: <strong className="text-gray-700">{addLtForm.leaveTypeName}</strong></p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-gray-600">Credits</label>
+                          <input type="number" min="0" placeholder="e.g. 5"
+                            className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1F4FD8]"
+                            value={addLtForm.totalCredits} onChange={e => setAddLtForm(p => ({ ...p, totalCredits: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-gray-600">Expires On</label>
+                          <input type="date"
+                            className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1F4FD8]"
+                            value={addLtForm.expiresOn} onChange={e => setAddLtForm(p => ({ ...p, expiresOn: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-gray-600">Resets On</label>
+                          <input type="date"
+                            className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1F4FD8]"
+                            value={addLtForm.resetOn} onChange={e => setAddLtForm(p => ({ ...p, resetOn: e.target.value }))} />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex gap-2">
+                    <Button size="sm" className="bg-[#1F4FD8] hover:bg-[#1845b8]"
+                      disabled={!addLtForm.leaveTypeId || !addLtForm.totalCredits}
+                      onClick={handleAddLeaveEntry}>
+                      Add
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setAddLtOpen(false)}>Cancel</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Leave Request History */}
+            <div className="border-t border-gray-200 pt-4 space-y-2">
+              <p className="text-sm font-semibold text-gray-700">Leave Request History</p>
+              {empRequests.length > 0 ? (
+                <Table className="w-auto min-w-full">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Request ID</TableHead>
+                      <TableHead>Leave Type</TableHead>
+                      <TableHead>Start Date</TableHead>
+                      <TableHead>End Date</TableHead>
+                      <TableHead>Days</TableHead>
+                      <TableHead>Applied On</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {empRequests.map(req => (
+                      <TableRow key={req.id} className="hover:bg-gray-50">
+                        <TableCell className="font-medium text-gray-900 text-xs whitespace-nowrap">{req.requestId}</TableCell>
+                        <TableCell className="text-sm text-gray-700 whitespace-nowrap">{req.leaveType}</TableCell>
+                        <TableCell className="text-sm text-gray-600 whitespace-nowrap">{req.startDate}</TableCell>
+                        <TableCell className="text-sm text-gray-600 whitespace-nowrap">{req.endDate}</TableCell>
                         <TableCell>
-                          <span className="text-sm font-semibold text-gray-800">{entry.totalCredits}</span>
-                          <span className="text-xs text-gray-400 ml-1">days</span>
+                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-50 text-blue-800 text-xs font-bold">{req.totalDays}</span>
                         </TableCell>
-                        <TableCell className="text-sm text-gray-600">{entry.used}</TableCell>
+                        <TableCell className="text-sm text-gray-600 whitespace-nowrap">{req.appliedDate}</TableCell>
                         <TableCell>
-                          <span className={`text-sm font-semibold ${remaining === 0 ? 'text-red-600' : 'text-green-700'}`}>{remaining}</span>
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-500 whitespace-nowrap">{entry.expiresOn ?? '—'}</TableCell>
-                        <TableCell className="text-sm text-gray-500 whitespace-nowrap">{entry.resetOn ?? '—'}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => openAdjust(managingEmp.id, entry)} className="text-[#1F4FD8] hover:text-[#1845b8] hover:bg-blue-50">
-                              <Edit3 className="w-4 h-4 mr-1" /> Adjust
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleRemoveLeaveEntry(managingEmp.id, entry.leaveTypeId)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                              <Trash2 className="w-4 h-4 mr-1" /> Remove
-                            </Button>
-                          </div>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors[req.status]}`}>
+                            {statusLabel[req.status]}
+                          </span>
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-6 text-gray-400 text-sm">No leave types assigned yet.</div>
-            )}
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-sm text-gray-400 italic py-4 text-center">No leave requests found for this employee.</p>
+              )}
+            </div>
 
-            {/* Add Leave Type section */}
-            {!addLtOpen ? (
-              <Button variant="outline" className="w-full border-dashed text-[#1F4FD8] hover:bg-blue-50"
-                onClick={() => { setAddLtOpen(true); setAddLtForm({ leaveTypeId: '', leaveTypeName: '', totalCredits: '', expiresOn: '', resetOn: '' }); }}>
-                <Plus className="w-4 h-4 mr-2" /> Add Leave Type
-              </Button>
-            ) : (
-              <div className="border border-blue-200 rounded-lg p-4 bg-blue-50/30 space-y-3">
-                <p className="text-sm font-medium text-gray-700">Add Leave Type</p>
-                <LeaveTypeCombobox
-                  leaveTypes={leaveTypes}
-                  excludeIds={managingEmp?.leaves.map(e => e.leaveTypeId) ?? []}
-                  onSelect={handleSelectLtForEmp}
-                  onCreateNew={handleCreateLtForEmp}
-                />
-                {addLtForm.leaveTypeId && (
-                  <>
-                    <p className="text-xs text-gray-500">Selected: <strong className="text-gray-700">{addLtForm.leaveTypeName}</strong></p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-600">Credits</label>
-                        <input type="number" min="0" placeholder="e.g. 5"
-                          className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1F4FD8]"
-                          value={addLtForm.totalCredits} onChange={e => setAddLtForm(p => ({ ...p, totalCredits: e.target.value }))} />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-600">Expires On</label>
-                        <input type="date"
-                          className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1F4FD8]"
-                          value={addLtForm.expiresOn} onChange={e => setAddLtForm(p => ({ ...p, expiresOn: e.target.value }))} />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-600">Resets On</label>
-                        <input type="date"
-                          className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1F4FD8]"
-                          value={addLtForm.resetOn} onChange={e => setAddLtForm(p => ({ ...p, resetOn: e.target.value }))} />
-                      </div>
-                    </div>
-                  </>
-                )}
-                <div className="flex gap-2">
-                  <Button size="sm" className="bg-[#1F4FD8] hover:bg-[#1845b8]"
-                    disabled={!addLtForm.leaveTypeId || !addLtForm.totalCredits}
-                    onClick={handleAddLeaveEntry}>
-                    Add
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setAddLtOpen(false)}>Cancel</Button>
-                </div>
-              </div>
-            )}
           </div>
           <DialogFooter><Button onClick={() => setManagingEmp(null)}>Close</Button></DialogFooter>
         </DialogContent>
