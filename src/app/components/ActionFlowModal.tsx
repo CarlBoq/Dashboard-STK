@@ -9,6 +9,7 @@ export interface ActionField {
   placeholder?: string;
   value?: string;
   options?: string[];
+  readOnly?: boolean;
 }
 
 export interface ActionFlowConfig {
@@ -118,7 +119,7 @@ export function ActionFlowModal({ config, onClose }: ActionFlowModalProps) {
             {config.fields.map((field) => (
               <div key={field.key} className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">{field.label}</label>
-                {config.readOnly ? (
+                {config.readOnly || field.readOnly ? (
                   <div className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
                     {values[field.key] || '-'}
                   </div>

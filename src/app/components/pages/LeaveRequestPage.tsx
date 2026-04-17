@@ -442,7 +442,7 @@ export function LeaveRequestPage() {
   const [adjustForm, setAdjustForm] = useState({ action: 'add' as 'add' | 'deduct' | 'set', days: '', reason: '' });
 
   // ── Filters ────────────────────────────────────────────────────────────────
-  const defaultReqFilters = { status: 'All', store: 'All Stores', leaveType: 'All', dateFrom: '', dateTo: '', search: '' };
+  const defaultReqFilters = { status: 'Active', store: 'All Stores', leaveType: 'All', dateFrom: '', dateTo: '', search: '' };
   const [reqFilters,         setReqFilters]         = useState(defaultReqFilters);
   const [appliedReqFilters,  setAppliedReqFilters]  = useState(defaultReqFilters);
   const defaultBalFilters = { store: 'All Stores', search: '' };
@@ -487,7 +487,8 @@ export function LeaveRequestPage() {
     const kw = appliedReqFilters.search.trim().toLowerCase();
     const { dateFrom, dateTo, leaveType } = appliedReqFilters;
     return requests.filter(r => {
-      if (appliedReqFilters.status !== 'All' && r.status !== appliedReqFilters.status.toLowerCase()) return false;
+      if (appliedReqFilters.status === 'Active' && r.status === 'approved') return false;
+      if (appliedReqFilters.status !== 'All' && appliedReqFilters.status !== 'Active' && r.status !== appliedReqFilters.status.toLowerCase()) return false;
       if (appliedReqFilters.store !== 'All Stores' && r.store !== appliedReqFilters.store) return false;
       if (leaveType !== 'All' && r.leaveType !== leaveType) return false;
       if (dateFrom && r.appliedDate < dateFrom) return false;
@@ -548,11 +549,11 @@ export function LeaveRequestPage() {
       description: `Approve leave for ${req.employeeName} (${req.leaveType}, ${req.totalDays} day${req.totalDays !== 1 ? 's' : ''}). Credits will be deducted from their balance.`,
       actionLabel: 'Approve', successActionVerb: 'approved', entityLabel: `leave request ${req.requestId}`,
       fields: [
-        { key: 'employee',   label: 'Employee',    value: req.employeeName },
-        { key: 'leaveType',  label: 'Leave Type',  value: req.leaveType },
-        { key: 'startDate',  label: 'Start Date',  value: req.startDate },
-        { key: 'endDate',    label: 'End Date',    value: req.endDate },
-        { key: 'totalDays',  label: 'Total Days',  value: String(req.totalDays) },
+        { key: 'employee',   label: 'Employee',    value: req.employeeName,      readOnly: true },
+        { key: 'leaveType',  label: 'Leave Type',  value: req.leaveType,         readOnly: true },
+        { key: 'startDate',  label: 'Start Date',  value: req.startDate,         readOnly: true },
+        { key: 'endDate',    label: 'End Date',    value: req.endDate,           readOnly: true },
+        { key: 'totalDays',  label: 'Total Days',  value: String(req.totalDays), readOnly: true },
         { key: 'adminNotes', label: 'Admin Notes', placeholder: 'Optional notes…', value: '' },
       ],
       onApply: (values) => {
@@ -572,9 +573,9 @@ export function LeaveRequestPage() {
       description: `Send this request back to ${req.employeeName} to revise and resubmit.`,
       actionLabel: 'Return for Revision', successActionVerb: 'returned for revision', entityLabel: `leave request ${req.requestId}`,
       fields: [
-        { key: 'employee',   label: 'Employee',           value: req.employeeName },
-        { key: 'leaveType',  label: 'Leave Type',         value: req.leaveType },
-        { key: 'totalDays',  label: 'Total Days',         value: String(req.totalDays) },
+        { key: 'employee',   label: 'Employee',           value: req.employeeName,      readOnly: true },
+        { key: 'leaveType',  label: 'Leave Type',         value: req.leaveType,         readOnly: true },
+        { key: 'totalDays',  label: 'Total Days',         value: String(req.totalDays), readOnly: true },
         { key: 'adminNotes', label: 'Notes for Employee', placeholder: 'Explain what needs to be corrected…', value: '' },
       ],
       onApply: (values) => {
@@ -744,7 +745,7 @@ export function LeaveRequestPage() {
                 <label className="text-sm text-gray-600">Status</label>
                 <select value={reqFilters.status} onChange={e => setReqFilters(p => ({ ...p, status: e.target.value }))}
                   className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1F4FD8]">
-                  {['All','Pending','Approved','Revision'].map(s => <option key={s}>{s}</option>)}
+                  {['Active','All','Pending','Approved','Revision'].map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
               <div>
